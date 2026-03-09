@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetSim — Netzwerk Simulator für Schulen</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+
+</head>
+
+<body>
+  <div id="app">
+
+    <!-- ══════ TOPBAR ══════ -->
+    <div id="topbar">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="6" r="3.5" />
+            <circle cx="6" cy="18" r="3.5" />
+            <circle cx="18" cy="18" r="3.5" />
+            <line x1="12" y1="9.5" x2="6" y2="14.5" />
+            <line x1="12" y1="9.5" x2="18" y2="14.5" />
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">NetSim</div>
+          <div class="logo-sub">Netzwerk Simulator V0.7</div>
+        </div>
+      </div>
+
+      <!-- Werkzeuge -->
+      <div class="tb-group">
+        <div class="tb-btn" id="btn-delete" onclick="toggleDelete()" title="Löschen (D)">
+          🗑️ Löschen
+        </div>
+
+      </div>
+      <div class="tb-divider"></div>
+
+      <!-- Datei -->
+      <div class="tb-group">
+        <div class="tb-btn" onclick="saveNet()" title="Netzwerk speichern (Strg+S)">
+          💾 Speichern
+        </div>
+        <div class="tb-btn" onclick="loadNet()" title="Netzwerk laden">
+          📂 Laden
+        </div>
+        <div class="tb-btn"
+          onclick="if(confirm('⚠ Das Beispielnetzwerk lädt ein fertiges Netzwerk. Im Unterricht solltest du selbst aufbauen — dieses Beispiel ist nur zum Kennenlernen des Programms gedacht. Trotzdem laden?')) loadExample()"
+          title="Beispielnetzwerk laden">
+          🗂️ Beispiel
+        </div>
+        <div class="tb-btn" onclick="clearAll()" title="Alles zurücksetzen">
+          🔄 Reset
+        </div>
+        <div class="tb-btn" onclick="showHelp()" title="Hilfe">
+          ❓ Hilfe
+        </div>
+      </div>
+
+      <!-- Mode Switch: Entwurf / Simulation -->
+      <div class="mode-switch">
+        <div class="mode-opt active" id="mo-design" onclick="setMode('design')"
+          title="Entwurfsmodus — Netzwerk aufbauen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path
+              d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+          </svg>Entwurf
+        </div>
+        <div class="mode-opt" id="mo-sim" onclick="setMode('sim')" title="Simulationsmodus — Netzwerk testen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21" />
+          </svg>Simulation
+        </div>
+      </div>
+    </div>
+
+    <div id="main">
+      <!-- ══════ SIDEBAR ══════ -->
+      <div id="sidebar">
+
+        <!-- Werkzeuge -->
+        <div class="sb-label">Werkzeug</div>
+        <div class="sb-section">
+          <div class="sb-tool" id="sb-cable" onclick="toggleCable()" title="Kabel verbinden (C)">
+            <div class="sb-tool-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- RJ45 Stecker links -->
+                <rect x="1" y="9" width="5" height="6" rx="1" stroke="currentColor" stroke-width="1.6" fill="none" />
+                <rect x="2.5" y="10.5" width="1" height="3" rx=".3" fill="currentColor" opacity=".6" />
+                <rect x="4" y="10.5" width="1" height="3" rx=".3" fill="currentColor" opacity=".6" />
+                <!-- Kabelstrang -->
+                <path d="M6 12 Q10 12 14 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <!-- RJ45 Stecker rechts (gespiegelt) -->
+                <rect x="18" y="9" width="5" height="6" rx="1" stroke="currentColor" stroke-width="1.6" fill="none" />
+                <rect x="19" y="10.5" width="1" height="3" rx=".3" fill="currentColor" opacity=".6" />
+                <rect x="20.5" y="10.5" width="1" height="3" rx=".3" fill="currentColor" opacity=".6" />
+                <!-- Verbindung Kabel zu rechtem Stecker -->
+                <path d="M14 12 Q16 12 18 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </div>
+            <div class="pi-name">Kabel</div>
+          </div>
+        </div>
+
+        <div class="sb-divider"></div>
+
+        <!-- Endgeräte -->
+        <div class="sb-label">Endgeräte</div>
+        <div class="sb-section">
+
+          <div class="pal-item" draggable="true" ondragstart="palDrag(event,'pc')" title="PC / Desktop-Rechner">
+            <div class="pi-icon" style="background:#e8f0fe">
+              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="32" height="22" rx="3" fill="#4285f4" />
+                <rect x="6" y="6" width="28" height="18" rx="2" fill="#d2e3fc" />
+                <rect x="15" y="26" width="10" height="4" fill="#4285f4" />
+                <rect x="10" y="30" width="20" height="3" rx="1.5" fill="#4285f4" />
+                <rect x="8" y="8" width="12" height="8" rx="1" fill="rgba(255,255,255,.4)" />
+              </svg>
+            </div>
+            <div class="pi-name">PC</div>
+          </div>
+
+          <div class="pal-item" draggable="true" ondragstart="palDrag(event,'laptop')" title="Notebook / Laptop">
+            <div class="pi-icon" style="background:#e8f0fe">
+              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <rect x="6" y="5" width="28" height="20" rx="2.5" fill="#4285f4" />
+                <rect x="8" y="7" width="24" height="16" rx="1.5" fill="#d2e3fc" />
+                <path d="M2 25 L38 25 L36 31 L4 31 Z" fill="#4285f4" />
+                <rect x="15" y="26" width="10" height="3" rx="1.5" fill="#2a6dd9" />
+                <rect x="10" y="9" width="9" height="6" rx="1" fill="rgba(255,255,255,.4)" />
+              </svg>
+            </div>
+            <div class="pi-name">Laptop</div>
+          </div>
+
+        </div>
+
+        <div class="sb-divider"></div>
+
+        <!-- Netzwerk -->
+        <div class="sb-label">Netzwerk</div>
+        <div class="sb-section">
+
+          <div class="pal-item" draggable="true" ondragstart="palDrag(event,'router')"
+            title="Vermittlungsrechner / Router">
+            <div class="pi-icon" style="background:#fff3e0">
+              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <rect x="19" y="2" width="2" height="10" rx="1" fill="#e65100" />
+                <rect x="12" y="4" width="2" height="8" rx="1" fill="#e65100" transform="rotate(-15,13,8)" />
+                <rect x="26" y="4" width="2" height="8" rx="1" fill="#e65100" transform="rotate(15,27,8)" />
+                <rect x="3" y="13" width="34" height="18" rx="4" fill="#fb8c00" />
+                <rect x="3" y="13" width="34" height="9" rx="4" fill="#e65100" />
+                <rect x="3" y="18" width="34" height="13" fill="#fb8c00" />
+                <rect x="7" y="15" width="5" height="4" rx="1" fill="#bf360c" />
+                <rect x="14" y="15" width="5" height="4" rx="1" fill="#bf360c" />
+                <rect x="21" y="15" width="5" height="4" rx="1" fill="#bf360c" />
+                <circle cx="9" cy="25" r="2" fill="#4caf50" />
+                <circle cx="16" cy="25" r="2" fill="#4caf50" />
+                <circle cx="23" cy="25" r="2" fill="#4caf50" />
+                <circle cx="32" cy="25" r="2.5" fill="#ff5252" />
+              </svg>
+            </div>
+            <div class="pi-name">Router</div>
+          </div>
+
+          <div class="pal-item" draggable="true" ondragstart="palDrag(event,'switch')"
+            title="Switch (Netzwerk-Verteiler)">
+            <div class="pi-icon" style="background:#f1f3f4">
+              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="10" width="36" height="20" rx="3" fill="#607d8b" />
+                <rect x="2" y="10" width="36" height="10" rx="3" fill="#78909c" />
+                <rect x="4" y="12" width="32" height="6" rx="1.5" fill="#90a4ae" />
+                <circle cx="8" cy="15" r="2" fill="#00acc1" />
+                <circle cx="13" cy="15" r="2" fill="#00acc1" />
+                <circle cx="8" cy="22" r="1.5" fill="#37474f" />
+                <circle cx="12" cy="22" r="1.5" fill="#37474f" />
+                <circle cx="16" cy="22" r="1.5" fill="#37474f" />
+                <circle cx="20" cy="22" r="1.5" fill="#37474f" />
+                <circle cx="24" cy="22" r="1.5" fill="#37474f" />
+                <circle cx="28" cy="22" r="1.5" fill="#37474f" />
+                <circle cx="33" cy="22" r="2" fill="#ff5252" />
+                <circle cx="33" cy="15" r="2" fill="#4caf50" />
+              </svg>
+            </div>
+            <div class="pi-name">Switch</div>
+          </div>
+
+          <div class="pal-item" draggable="true" ondragstart="palDrag(event,'server')" title="Server">
+            <div class="pi-icon" style="background:#f1f3f4">
+              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <rect x="10" y="3" width="20" height="34" rx="3" fill="#455a64" />
+                <rect x="12" y="5" width="16" height="30" rx="2" fill="#37474f" />
+                <rect x="14" y="8" width="10" height="2" rx="1" fill="#546e7a" />
+                <rect x="14" y="12" width="10" height="2" rx="1" fill="#546e7a" />
+                <rect x="14" y="16" width="10" height="2" rx="1" fill="#546e7a" />
+                <rect x="14" y="21" width="10" height="3" rx="1" fill="#546e7a" />
+                <circle cx="20" cy="29" r="3" fill="#546e7a" />
+                <circle cx="15" cy="32" r="1.5" fill="#ffd600" />
+                <circle cx="20" cy="32" r="1.5" fill="#4caf50" />
+                <circle cx="25" cy="32" r="1.5" fill="#ff5252" />
+              </svg>
+            </div>
+            <div class="pi-name">Server</div>
+          </div>
+
+          <div class="pal-item" draggable="true" ondragstart="palDrag(event,'modem')" title="Modem / DSL-Router">
+            <div class="pi-icon" style="background:#e3f2fd">
+              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <!-- Flache Modem-Box -->
+                <rect x="2" y="14" width="36" height="17" rx="3" fill="#1565c0" />
+                <rect x="2" y="14" width="36" height="8" rx="3" fill="#1976d2" />
+                <rect x="2" y="19" width="36" height="12" fill="#1976d2" />
+                <!-- LEDs -->
+                <circle cx="9" cy="27" r="2" fill="#00e5ff" />
+                <circle cx="15" cy="27" r="2" fill="#00e5ff" />
+                <circle cx="21" cy="27" r="2" fill="#4caf50" />
+                <circle cx="27" cy="27" r="2" fill="#ffd600" />
+                <!-- Anschlüsse unten -->
+                <rect x="12" y="31" width="4" height="4" rx="1" fill="#0d47a1" />
+                <rect x="20" y="31" width="4" height="4" rx="1" fill="#0d47a1" />
+                <!-- Signal Symbol -->
+                <path d="M29 9 Q32 6 35 9" stroke="#1976d2" stroke-width="1.8" fill="none" stroke-linecap="round" />
+                <path d="M27 11 Q32 5 37 11" stroke="#1565c0" stroke-width="1.4" fill="none" stroke-linecap="round"
+                  opacity=".5" />
+                <circle cx="32" cy="12" r="1.5" fill="#1976d2" />
+              </svg>
+            </div>
+            <div class="pi-name">Modem</div>
+          </div>
+
+        </div>
+        <div class="sidebar-footer"
+          style="padding:15px; font-size:10px; color:var(--muted); text-align:center; border-top:1px solid var(--border); margin-top:auto;">
+          © 2026 NetSim<br>Alle Rechte vorbehalten.
+        </div>
+      </div>
+
+      <!-- ══════ CANVAS ══════ -->
+      <div id="canvas-area" ondragover="event.preventDefault()" ondrop="canvasDrop(event)"
+        onmousedown="cvMouseDown(event)" onmousemove="cvMouseMove(event)" onmouseup="cvMouseUp(event)"
+        ondblclick="cvDblClick(event)" onwheel="cvWheel(event)"
+        oncontextmenu="cvContextMenu(event); event.preventDefault();">
+        <canvas id="cvs"></canvas>
+        <div id="zoom-pan">
+          <div id="device-layer"></div>
+        </div>
+        <div id="empty-state">
+          <div class="es-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <circle cx="12" cy="6" r="3.5" />
+              <circle cx="6" cy="18" r="3.5" />
+              <circle cx="18" cy="18" r="3.5" />
+              <line x1="12" y1="9.5" x2="6" y2="14.5" />
+              <line x1="12" y1="9.5" x2="18" y2="14.5" />
+            </svg>
+          </div>
+          <h3>Willkommen bei NetSim!</h3>
+          <p>👈 Ziehe Geräte aus der Seitenleiste hierher<br>🔗 Verbinde sie mit dem Kabel-Werkzeug <b>(C)</b><br>⚙️
+            Klicke auf ein Gerät um es zu konfigurieren<br>▶️ Wechsle zur <b>Simulation</b> und teste mit <b>ping</b>
+          </p>
+        </div>
+        <!-- Paketweg-Visualisierung -->
+        <div id="packet-path" class="packet-path">
+          <div class="pp-header">📡 Paketweg</div>
+          <div class="pp-route" id="pp-route"></div>
+        </div>
+      </div>
+
+      <!-- ══════ CFG FLOATING WINDOW ══════ -->
+      <div id="cfg-window">
+        <div class="cfw-titlebar" id="cfw-titlebar">
+          <div class="cfw-dots">
+            <div class="cfw-dot r" onclick="hideCfgWindow()" title="Schließen"></div>
+            <div class="cfw-dot y"></div>
+            <div class="cfw-dot g"></div>
+          </div>
+          <span class="cfw-name" id="cfw-name">Gerät</span>
+          <span class="cfw-type" id="cfw-type">—</span>
+        </div>
+        <div class="cfw-tabs">
+          <div class="cfw-tab active" id="ctab-cfg" onclick="switchCfwTab('cfg')">⚙️ Konfig</div>
+          <div class="cfw-tab" id="ctab-apps" onclick="switchCfwTab('apps')">📦 Apps</div>
+          <div class="cfw-tab" id="ctab-log" onclick="switchCfwTab('log')">📋 Log</div>
+        </div>
+
+        <!-- TAB: KONFIG -->
+        <div class="cfw-tabcontent active" id="ctab-content-cfg">
+          <div id="rp-config">
+            <div class="rp-section">
+              <div class="rp-label">Hardware</div>
+              <div class="rp-field">
+                <label>Gerätename</label>
+                <input class="rp-input" id="cfg-name" onchange="cfgUpdate('name',this.value)" />
+              </div>
+              <div class="rp-field">
+                <label>MAC-Adresse</label>
+                <input class="rp-input" id="cfg-mac" readonly style="color:var(--muted)" />
+              </div>
+            </div>
+            <div class="rp-section" id="cfg-net-section">
+              <div class="rp-label">Netzwerk</div>
+              <div class="rp-field">
+                <label class="tip-label"
+                  data-tip="Jedes Gerät im Netzwerk braucht eine eindeutige IPv4-Adresse (z.B. 192.168.1.10). Geräte im gleichen Netzwerk müssen den gleichen Netzanteil haben.">IPv4-Adresse
+                  ℹ️</label>
+                <input class="rp-input" id="cfg-ip" placeholder="192.168.1.1" onchange="cfgUpdate('ip',this.value)" />
+              </div>
+              <div class="rp-field">
+                <label class="tip-label"
+                  data-tip="Die Subnetzmaske bestimmt, welcher Teil der IP-Adresse das Netzwerk identifiziert und welcher Teil den Host. 255.255.255.0 bedeutet: die ersten 3 Zahlen = Netz, die letzte = Host.">Subnetzmaske
+                  ℹ️</label>
+                <input class="rp-input" id="cfg-mask" placeholder="255.255.255.0"
+                  onchange="cfgUpdate('mask',this.value)" />
+              </div>
+              <div class="rp-field" id="cfg-gw-field">
+                <label class="tip-label"
+                  data-tip="Das Gateway ist der Router, der Pakete in andere Netzwerke weiterleitet. Ohne Gateway können Geräte nur im eigenen Subnetz kommunizieren.">Standardgateway
+                  ℹ️</label>
+                <input class="rp-input" id="cfg-gw" placeholder="192.168.1.1" onchange="cfgUpdate('gw',this.value)" />
+              </div>
+              <div class="rp-field" id="cfg-dns-field">
+                <label class="tip-label"
+                  data-tip="Der DNS-Server übersetzt Domainnamen (z.B. www.schule.de) in IP-Adressen. Ohne DNS musst du die IP direkt eingeben.">DNS-Server
+                  ℹ️</label>
+                <input class="rp-input" id="cfg-dns" placeholder="192.168.1.1" onchange="cfgUpdate('dns',this.value)" />
+              </div>
+              <label class="rp-check" id="cfg-dhcp-check">
+                <input type="checkbox" id="cfg-dhcp" onchange="cfgDHCP()" />
+                <span class="tip-label"
+                  data-tip="DHCP vergibt automatisch IP-Adressen an Geräte. Es muss ein DHCP-Server im Netzwerk aktiv sein, damit dies funktioniert.">DHCP
+                  verwenden ℹ️</span>
+              </label>
+              <div id="cfg-routing-section" style="display:none;margin-top:8px">
+                <label class="rp-check">
+                  <input type="checkbox" id="cfg-autoroute" onchange="cfgUpdate('autoroute',this.checked)" />
+                  <span class="tip-label"
+                    data-tip="RIP (Routing Information Protocol) sorgt dafür, dass Router automatisch lernen, welche Netzwerke über welche Wege erreichbar sind.">Automatisches
+                    Routing (RIP) ℹ️</span>
+                </label>
+              </div>
+            </div>
+            <div class="rp-section" id="cfg-ports-section" style="display:none">
+              <div class="rp-label">Schnittstellen</div>
+              <div id="cfg-ports-list" style="font-size:12px;color:var(--dim)"></div>
+            </div>
+            <div class="rp-section" style="display:flex;flex-direction:column;gap:6px">
+              <button class="rp-btn success" onclick="togglePower()">
+                ⚡ <span id="pwr-label">Ausschalten</span>
+              </button>
+              <button class="rp-btn primary" onclick="openTerminal()">
+                🖥️ Terminal / Desktop öffnen
+              </button>
+              <button class="rp-btn danger" onclick="deleteSelected()">
+                🗑️ Gerät entfernen
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: APPS -->
+        <div class="cfw-tabcontent" id="ctab-content-apps">
+          <div style="padding:12px 16px 6px">
+            <div class="rp-label">Apps installieren</div>
+            <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Klicke auf eine App um sie zu installieren /
+              deinstallieren</p>
+          </div>
+          <div class="app-list" id="app-list"></div>
+        </div>
+
+        <!-- TAB: LOG -->
+        <div class="cfw-tabcontent" id="ctab-content-log" style="flex-direction:column;">
+          <div
+            style="padding:10px 16px 6px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
+            <div class="rp-label" style="margin-bottom:0;flex:1">Ereignisprotokoll</div>
+            <button onclick="clearLog()"
+              style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700">🗑️
+              Löschen</button>
+          </div>
+          <div id="event-log"></div>
+        </div>
+      </div>
+
+    </div><!-- main -->
+
+    <!-- ══════ STATUSBAR ══════ -->
+    <div id="statusbar">
+      <div class="sb-item">⬡ <b id="sb-nodes">0</b> Geräte</div>
+      <div class="sep"></div>
+      <div class="sb-item">⟶ <b id="sb-cables">0</b> Kabel</div>
+      <div class="sep"></div>
+      <div class="sb-item" id="sb-sel" style="display:none">● <b id="sb-selname">—</b></div>
+      <div class="sb-right">
+        <span id="sb-mode">✏ Entwurfsmodus</span>
+        <div class="sep"></div>
+        <span><span class="sb-key">C</span> Kabel</span>
+        <span><span class="sb-key">D</span> Löschen</span>
+        <span><span class="sb-key">Mausrad</span> Zoomen</span>
+        <span><span class="sb-key">Leertaste</span> Modus</span>
+        <span>NetSim v3.0 — Schulversion</span>
+      </div>
+    </div>
+  </div><!-- app -->
+  <div id="zoom-indicator">100%</div>
+
+  <!-- ══════ CMD/TERMINAL WINDOW ══════ -->
+  <div id="cmd-overlay" onclick="if(event.target===this)closeCMD()" style="display:flex">
+    <div id="cmd-window">
+      <div class="cmd-titlebar" id="cmd-titlebar">
+        <div class="cmd-dots">
+          <div class="cmd-dot r" onclick="closeCMD()"></div>
+          <div class="cmd-dot y"></div>
+          <div class="cmd-dot g"></div>
+        </div>
+        <span class="cmd-title-name" id="cmd-name">Terminal</span>
+        <span class="cmd-title-ip" id="cmd-ip">0.0.0.0</span>
+        <span class="cmd-badge-term">BEFEHLSZEILE</span>
+      </div>
+      <div id="cmd-output"></div>
+      <div class="cmd-input-row">
+        <div class="cmd-prompt" id="cmd-prompt">C:\&gt;</div>
+        <input type="text" id="cmd-input" placeholder="Befehl eingeben..." autocomplete="off" spellcheck="false"
+          onkeydown="cmdKeydown(event)" />
+      </div>
+      <div class="cmd-footer">
+        <span>Befehle:</span>
+        <kbd>ping &lt;IP&gt;</kbd><kbd>traceroute &lt;IP&gt;</kbd><kbd>ipconfig</kbd><kbd>arp</kbd><kbd>nslookup
+          &lt;Name&gt;</kbd><kbd>cls</kbd><kbd>help</kbd>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ APP WINDOWS ══════ -->
+  <!-- Webbrowser -->
+  <div class="app-window" id="win-browser" style="width:560px;height:420px;top:80px;left:200px">
+    <div class="aw-title" id="drag-browser">
+      <div class="aw-dots">
+        <div class="aw-dot r" onclick="closeApp('browser')"></div>
+        <div class="aw-dot y"></div>
+        <div class="aw-dot g"></div>
+      </div>
+      <span class="aw-title-text">🌐 Webbrowser</span>
+    </div>
+    <div class="browser-bar">
+      <input class="browser-url" id="browser-url" placeholder="http://192.168.1.1 oder http://www.beispiel.de"
+        onkeydown="if(event.key==='Enter')browserGo()" />
+      <button class="browser-go" onclick="browserGo()">Öffnen</button>
+    </div>
+    <div class="browser-viewport" id="browser-view">
+      <div style="text-align:center;color:#94a3b8;padding:40px">
+        <div style="font-size:32px;margin-bottom:8px">🌐</div>
+        <div style="font-size:13px">Gib eine IP-Adresse oder URL ein</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DNS-Server App -->
+  <div class="app-window" id="win-dns" style="width:440px;height:360px;top:100px;left:250px">
+    <div class="aw-title" id="drag-dns">
+      <div class="aw-dots">
+        <div class="aw-dot r" onclick="closeApp('dns')"></div>
+        <div class="aw-dot y"></div>
+        <div class="aw-dot g"></div>
+      </div>
+      <span class="aw-title-text">🔖 DNS-Server</span>
+    </div>
+    <div class="aw-body">
+      <div class="rp-label">DNS-Einträge</div>
+      <table class="dns-table" id="dns-table">
+        <thead>
+          <tr>
+            <th>Hostname</th>
+            <th>IP-Adresse</th>
+            <th>Typ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="dns-tbody"></tbody>
+      </table>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input class="aw-input" id="dns-host" placeholder="www.beispiel.de" style="flex:1" />
+        <input class="aw-input" id="dns-ip-in" placeholder="192.168.1.1" style="width:130px" />
+        <button class="aw-btn ok" onclick="dnsAdd()">Hinzufügen</button>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="aw-btn ok" onclick="dnsServerToggle()" id="dns-start-btn">▶ DNS-Server starten</button>
+      </div>
+      <div id="dns-status" style="margin-top:8px;font-size:11px;color:var(--dim)"></div>
+    </div>
+  </div>
+
+  <!-- DHCP-Server App -->
+  <div class="app-window" id="win-dhcp" style="width:400px;height:320px;top:120px;left:260px">
+    <div class="aw-title" id="drag-dhcp">
+      <div class="aw-dots">
+        <div class="aw-dot r" onclick="closeApp('dhcp')"></div>
+        <div class="aw-dot y"></div>
+        <div class="aw-dot g"></div>
+      </div>
+      <span class="aw-title-text">⚡ DHCP-Server</span>
+    </div>
+    <div class="aw-body">
+      <div class="rp-label">IP-Bereich</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div class="aw-field">
+          <label>Von IP</label>
+          <input class="aw-input" id="dhcp-from" value="192.168.1.100" />
+        </div>
+        <div class="aw-field">
+          <label>Bis IP</label>
+          <input class="aw-input" id="dhcp-to" value="192.168.1.200" />
+        </div>
+      </div>
+      <div class="aw-field">
+        <label>Gateway (wird zugewiesen)</label>
+        <input class="aw-input" id="dhcp-gw" placeholder="192.168.1.1" />
+      </div>
+      <div class="aw-field">
+        <label>DNS-Server (wird zugewiesen)</label>
+        <input class="aw-input" id="dhcp-dns-out" placeholder="192.168.1.1" />
+      </div>
+      <button class="aw-btn ok" onclick="dhcpToggle()" id="dhcp-start-btn">▶ DHCP-Server starten</button>
+      <div class="dhcp-range" id="dhcp-status" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Webserver App -->
+  <div class="app-window" id="win-webserver" style="width:460px;height:380px;top:90px;left:220px">
+    <div class="aw-title" id="drag-webserver">
+      <div class="aw-dots">
+        <div class="aw-dot r" onclick="closeApp('webserver')"></div>
+        <div class="aw-dot y"></div>
+        <div class="aw-dot g"></div>
+      </div>
+      <span class="aw-title-text">🖥 Webserver</span>
+    </div>
+    <div class="aw-body">
+      <div class="rp-label">index.html — Texteditor</div>
+      <textarea id="webserver-content"
+        style="width:100%;height:180px;background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);outline:none;resize:vertical">&lt;html&gt;
+&lt;head&gt;&lt;title&gt;Meine Webseite&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;Willkommen!&lt;/h1&gt;
+  &lt;p&gt;Dies ist meine Webseite im NetSim-Netzwerk.&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="aw-btn ok" onclick="webserverSave()">💾 Speichern</button>
+        <button class="aw-btn ok" onclick="webserverToggle()" id="ws-start-btn">▶ Server starten</button>
+      </div>
+      <div id="ws-status" style="margin-top:8px;font-size:11px;color:var(--dim)"></div>
+    </div>
+  </div>
+
+  <!-- Email-Programm -->
+  <div class="app-window" id="win-email" style="width:500px;height:420px;top:85px;left:180px">
+    <div class="aw-title" id="drag-email">
+      <div class="aw-dots">
+        <div class="aw-dot r" onclick="closeApp('email')"></div>
+        <div class="aw-dot y"></div>
+        <div class="aw-dot g"></div>
+      </div>
+      <span class="aw-title-text">✉ E-Mail-Programm</span>
+    </div>
+    <div class="aw-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div class="aw-field">
+          <label>E-Mail-Adresse</label>
+          <input class="aw-input" id="email-addr" placeholder="nutzer@netz.de" />
+        </div>
+        <div class="aw-field">
+          <label>Mail-Server (SMTP/POP3)</label>
+          <input class="aw-input" id="email-srv" placeholder="192.168.1.5" />
+        </div>
+      </div>
+      <div class="rp-label">Neue Nachricht</div>
+      <div class="aw-field">
+        <label>An</label>
+        <input class="aw-input" id="email-to" placeholder="empfaenger@netz.de" />
+      </div>
+      <div class="aw-field">
+        <label>Betreff</label>
+        <input class="aw-input" id="email-subj" placeholder="Betreff..." />
+      </div>
+      <textarea id="email-body" placeholder="Nachricht..."
+        style="width:100%;height:80px;background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:8px;font-family:'Nunito',sans-serif;font-size:12px;outline:none;resize:none;margin-bottom:8px"></textarea>
+      <div style="display:flex;gap:8px">
+        <button class="aw-btn ok" onclick="emailSend()">📤 Senden</button>
+        <button class="aw-btn ok" onclick="emailFetch()">📥 Abrufen</button>
+      </div>
+      <div class="rp-label" style="margin-top:12px">Posteingang</div>
+      <div class="email-list" id="email-inbox"></div>
+    </div>
+  </div>
+
+  <!-- Echo-Server / Einfacher Client -->
+  <div class="app-window" id="win-echo" style="width:400px;height:300px;top:100px;left:230px">
+    <div class="aw-title" id="drag-echo">
+      <div class="aw-dots">
+        <div class="aw-dot r" onclick="closeApp('echo')"></div>
+        <div class="aw-dot y"></div>
+        <div class="aw-dot g"></div>
+      </div>
+      <span class="aw-title-text" id="echo-title">Echo-Server / Client</span>
+    </div>
+    <div class="aw-body">
+      <div id="echo-server-cfg">
+        <div class="aw-field"><label>Port</label><input class="aw-input" id="echo-port" value="55555" /></div>
+        <button class="aw-btn ok" onclick="echoToggle()" id="echo-start-btn">▶ Echo-Server starten</button>
+      </div>
+      <div id="echo-client-cfg" style="display:none">
+        <div style="display:flex;gap:8px">
+          <div class="aw-field" style="flex:1"><label>Server-IP</label><input class="aw-input" id="echo-target-ip"
+              placeholder="192.168.1.1" /></div>
+          <div class="aw-field" style="width:80px"><label>Port</label><input class="aw-input" id="echo-target-port"
+              value="55555" /></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input class="aw-input" id="echo-msg" placeholder="Nachricht senden..." style="flex:1" />
+          <button class="aw-btn ok" onclick="echoSend()">Senden</button>
+        </div>
+      </div>
+      <div class="aw-output" id="echo-output">Noch keine Nachrichten...</div>
+    </div>
+  </div>
+
+  <!-- Routing-Tabelle -->
+  <div class="app-window" id="win-routing" style="width:460px;height:320px;top:100px;left:220px">
+    <div class="aw-title" id="drag-routing">
+      <div class="aw-dots">
+        <div class="aw-dot r" onclick="closeApp('routing')"></div>
+        <div class="aw-dot y"></div>
+        <div class="aw-dot g"></div>
+      </div>
+      <span class="aw-title-text">🗺 Routing-Tabelle</span>
+    </div>
+    <div class="aw-body">
+      <div class="rp-label">Statische Routen</div>
+      <table class="rt-table" id="rt-table">
+        <thead>
+          <tr>
+            <th>Zielnetz</th>
+            <th>Maske</th>
+            <th>Gateway</th>
+            <th>Metrik</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rt-tbody"></tbody>
+      </table>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <input class="aw-input" id="rt-dest" placeholder="192.168.2.0" style="width:130px" />
+        <input class="aw-input" id="rt-mask" placeholder="255.255.255.0" style="width:130px" />
+        <input class="aw-input" id="rt-gw-in" placeholder="Gateway-IP" style="width:120px" />
+        <button class="aw-btn ok" onclick="rtAdd()">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FTP-Client -->
+  <div class="app-window" id="win-ftp" style="width:440px;height:320px;top:95px;left:210px">
+    <div class="aw-title" id="drag-ftp">
+      <div class="aw-dots">
+        <div class="aw-dot r" onclick="closeApp('ftp')"></div>
+        <div class="aw-dot y"></div>
+        <div class="aw-dot g"></div>
+      </div>
+      <span class="aw-title-text">📁 Datei-Explorer / FTP</span>
+    </div>
+    <div class="aw-body">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input class="aw-input" id="ftp-host" placeholder="Server-IP" style="flex:1" />
+        <button class="aw-btn ok" onclick="ftpConnect()">Verbinden</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div class="rp-label">Lokal</div>
+          <div id="ftp-local"
+            style="background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:8px;min-height:100px;font-size:11px;font-family:'JetBrains Mono',monospace">
+            📄 index.html<br>📄 readme.txt
+          </div>
+        </div>
+        <div>
+          <div class="rp-label">Remote</div>
+          <div id="ftp-remote"
+            style="background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:8px;min-height:100px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted)">
+            Nicht verbunden
+          </div>
+        </div>
+      </div>
+      <div id="ftp-status" style="margin-top:8px;font-size:11px;color:var(--dim)"></div>
+    </div>
+  </div>
+
+  <!-- ══════ CONTEXT MENU ══════ -->
+  <div id="ctx-menu">
+    <div class="ctx-item" onclick="ctxDo('terminal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="4 17 10 11 4 5" />
+        <line x1="12" y1="19" x2="20" y2="19" />
+      </svg>
+      Desktop öffnen
+    </div>
+    <div class="ctx-item" onclick="ctxDo('config')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06" />
+      </svg>
+      Konfigurieren
+    </div>
+    <div class="ctx-item" onclick="ctxDo('rename')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
+      </svg>
+      Umbenennen
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" onclick="ctxDo('power')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18.36 6.64A9 9 0 0112 21 9 9 0 015.64 6.64" />
+        <line x1="12" y1="2" x2="12" y2="12" />
+      </svg>
+      Ein-/Ausschalten
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item danger" onclick="ctxDo('delete')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6l-1 14H6L5 6" />
+      </svg>
+      Löschen
+    </div>
+  </div>
+
+  <!-- ══════ NOTIFICATIONS ══════ -->
+  <div id="notif"></div>
+
+  <!-- ══════ HELP PANEL ══════ -->
+  <div id="help-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="font-size:14px;font-weight:700;color:var(--text)">Tastenkürzel & Hilfe</h3>
+      <button onclick="showHelp()"
+        style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted)">×</button>
+    </div>
+    <div class="help-grid">
+      <div class="help-item">
+        <div class="help-key">C</div>
+        <div class="help-desc">Kabel-Modus</div>
+      </div>
+      <div class="help-item">
+        <div class="help-key">D</div>
+        <div class="help-desc">Löschen-Modus</div>
+      </div>
+      <div class="help-item">
+        <div class="help-key">Leertaste</div>
+        <div class="help-desc">Modus wechseln</div>
+      </div>
+      <div class="help-item">
+        <div class="help-key">Entf</div>
+        <div class="help-desc">Gerät löschen</div>
+      </div>
+      <div class="help-item">
+        <div class="help-key">Esc</div>
+        <div class="help-desc">Abbrechen</div>
+      </div>
+      <div class="help-item">
+        <div class="help-key">Strg+S</div>
+        <div class="help-desc">Speichern</div>
+      </div>
+      <div class="help-item">
+        <div class="help-key">Doppelklick</div>
+        <div class="help-desc">Desktop öffnen (Sim)</div>
+      </div>
+      <div class="help-item">
+        <div class="help-key">Rechtsklick</div>
+        <div class="help-desc">Kontextmenü</div>
+      </div>
+    </div>
+    <div
+      style="margin-top:12px;padding:10px;background:var(--accentDim);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.8;font-weight:600">
+      <strong>FILIUS-Funktionen in NetSim:</strong><br>
+      ✓ Entwurf- und Simulationsmodus<br>
+      ✓ Webserver + Webbrowser + DNS + DHCP<br>
+      ✓ E-Mail (SMTP/POP3) · Echo-Server · FTP<br>
+      ✓ Routing-Tabellen · ARP · Paketaufzeichnung<br>
+      ✓ Ping · Tracert · ipconfig · nslookup · host
+    </div>
+  </div>
+
+  <!-- Versteckter File-Input fürs Laden -->
+  <input type="file" id="file-load" accept=".json" style="display:none" onchange="loadFile(event)" />
+
+  <script src="netsim.js"></script>
+
+  <!-- © 2026 Louis Döring / NetSim – CC BY-NC-ND 4.0 – https://creativecommons.org/licenses/by-nc-nd/4.0/ -->
+
+</body>
+
+</html>
