@@ -51,6 +51,9 @@ const TYPES = {
   modem:  { prefix: 'Modem',  ip: '10.0.0.',    mask: '255.255.255.0', gw: '',            color: '#1565c0', bgColor: '#e3f2fd', hasIP: true,  terminal: false, defaultApps: [] },
 };
 
+// Alias für Kompatibilität mit älteren Versionen
+const NODE_DEFS = TYPES;
+
 // FILIUS-Core Apps
 const APPS = {
   pc:     ['webbrowser'],
