@@ -1,3 +1,4 @@
+// @ts-nocheck
 // ════════════════════════════════════════════════════════════
 // CORE STATE
 // ════════════════════════════════════════════════════════════
@@ -28,40 +29,40 @@ let emailInboxes = {}; // nodeId -> [{from,subj,body,time}]
 let routingTables = {};
 let appWindowNode = null;
 
-let ipCounters = { pc: 10, laptop: 20, router: 1, switch: 0, server: 100, modem: 0 };
+let ipCounters = { pc: 10, laptop: 20, router: 1, switch: 0, hub: 0, ap: 50, server: 100, modem: 0 };
 
 const TYPES = {
-  pc: { prefix: 'PC', ip: '192.168.1.', mask: '255.255.255.0', gw: '192.168.1.1', color: '#4285f4', bgColor: '#e8f0fe', hasIP: true, terminal: true },
-  laptop: { prefix: 'Laptop', ip: '192.168.1.', mask: '255.255.255.0', gw: '192.168.1.1', color: '#4285f4', bgColor: '#e8f0fe', hasIP: true, terminal: true },
+  pc: { prefix: 'PC', ip: '192.168.1.', mask: '255.255.255.0', gw: '192.168.1.1', color: '#4285f4', bgColor: '#e8f0fe', hasIP: true, terminal: true, defaultApps: ['webbrowser'] },
+  laptop: { prefix: 'Laptop', ip: '192.168.1.', mask: '255.255.255.0', gw: '192.168.1.1', color: '#4285f4', bgColor: '#e8f0fe', hasIP: true, terminal: true, defaultApps: ['webbrowser'] },
   router: { prefix: 'Router', ip: '192.168.1.', mask: '255.255.255.0', gw: '', color: '#e65100', bgColor: '#fff3e0', hasIP: true, terminal: false },
   switch: { prefix: 'Switch', ip: '', mask: '', gw: '', color: '#607d8b', bgColor: '#f1f3f4', hasIP: false, terminal: false },
+  hub:    { prefix: 'Hub',    ip: '', mask: '', gw: '', color: '#e91e63', bgColor: '#fce4ec', hasIP: false, terminal: false },
+  ap:     { prefix: 'AP',     ip: '192.168.1.', mask: '255.255.255.0', gw: '', color: '#00897b', bgColor: '#e0f2f1', hasIP: true, terminal: false },
   server: { prefix: 'Server', ip: '192.168.1.', mask: '255.255.255.0', gw: '192.168.1.1', color: '#455a64', bgColor: '#f1f3f4', hasIP: true, terminal: true },
-  modem: { prefix: 'Modem', ip: '10.0.0.', mask: '255.255.255.0', gw: '', color: '#1565c0', bgColor: '#e3f2fd', hasIP: true, terminal: false },
+  modem:  { prefix: 'Modem',  ip: '10.0.0.', mask: '255.255.255.0', gw: '', color: '#1565c0', bgColor: '#e3f2fd', hasIP: true, terminal: false },
 };
 
 // Available apps per device type
 const APPS = {
-  pc: ['webbrowser', 'email', 'ftpclient', 'echoclient', 'texteditor'],
-  laptop: ['webbrowser', 'email', 'ftpclient', 'echoclient', 'texteditor'],
-  server: ['webserver', 'dnsserver', 'dhcpserver', 'emailserver', 'echoserver', 'ftpserver', 'texteditor'],
-  router: ['routing'],
+  pc:     ['webbrowser', 'email', 'firewall'],
+  laptop: ['webbrowser', 'email', 'firewall'],
+  server: ['webserver', 'dnsserver', 'dhcpserver', 'emailserver', 'firewall'],
+  router: ['routing', 'firewall'],
   switch: [],
+  hub: [],
+  ap: [],
   modem: [],
 };
 
 const APP_META = {
-  webbrowser: { name: 'Webbrowser', icon: '🌐', desc: 'HTTP-Seiten aufrufen' },
-  email: { name: 'E-Mail', icon: '✉', desc: 'E-Mails senden & empfangen' },
-  ftpclient: { name: 'FTP-Client', icon: '📁', desc: 'Dateien übertragen' },
-  echoclient: { name: 'Einfacher Client', icon: '💬', desc: 'Verbindung zu Echo-Server' },
-  texteditor: { name: 'Texteditor', icon: '📝', desc: 'Dateien bearbeiten' },
-  webserver: { name: 'Webserver', icon: '🖥', desc: 'HTTP-Server betreiben' },
-  dnsserver: { name: 'DNS-Server', icon: '🔖', desc: 'Hostnamen auflösen' },
-  dhcpserver: { name: 'DHCP-Server', icon: '⚡', desc: 'IPs automatisch vergeben' },
-  emailserver: { name: 'E-Mail-Server', icon: '📮', desc: 'SMTP/POP3-Server' },
-  echoserver: { name: 'Echo-Server', icon: '📡', desc: 'Nachrichten zurücksenden' },
-  ftpserver: { name: 'FTP-Server', icon: '📂', desc: 'Dateiserver' },
-  routing: { name: 'Routing-Tabelle', icon: '🗺', desc: 'Statische Routen' },
+  webbrowser:  { name: 'Webbrowser',      icon: '🌐', desc: 'HTTP-Seiten aufrufen' },
+  email:       { name: 'E-Mail',           icon: '✉',  desc: 'E-Mails senden & empfangen' },
+  firewall:    { name: 'Firewall',         icon: '🛡',  desc: 'Eingehenden Traffic filtern' },
+  webserver:   { name: 'Webserver',        icon: '🖥',  desc: 'HTTP-Server betreiben' },
+  dnsserver:   { name: 'DNS-Server',       icon: '🔖', desc: 'Hostnamen auflösen' },
+  dhcpserver:  { name: 'DHCP-Server',      icon: '⚡', desc: 'IPs automatisch vergeben' },
+  emailserver: { name: 'E-Mail-Server',    icon: '📮', desc: 'SMTP/POP3-Server' },
+  routing:     { name: 'Routing-Tabelle',  icon: '🗺', desc: 'Statische Routen' },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -153,11 +154,25 @@ function draw() {
     cx.fillRect(mx + 1 * s, my + 1.5 * s, 1.2 * s, 1.5 * s);
     cx.restore();
   }
+  // Draw WiFi signal circles for Access Points
+  for (const n of nodes) {
+    if (n.type === 'ap' && n.on) {
+      cx.save();
+      const pulseScale = 1 + 0.03 * Math.sin(Date.now() / 600);
+      for (let r = 35; r <= 90; r += 28) {
+        cx.beginPath();
+        cx.arc(n.x, n.y, r * pulseScale / zoom, 0, Math.PI * 2);
+        cx.strokeStyle = `rgba(0,137,123,${0.12 - r * 0.001})`;
+        cx.lineWidth = 1.2 / zoom;
+        cx.setLineDash([4, 4]);
+        cx.stroke();
+        cx.setLineDash([]);
+      }
+      cx.restore();
+    }
+  }
   cx.restore();
 }
-
-// ════════════════════════════════════════════════════════════
-// PALETTE
 // ════════════════════════════════════════════════════════════
 let palType = null;
 function palDrag(e, type) { palType = type; e.dataTransfer.effectAllowed = 'copy'; }
@@ -169,6 +184,69 @@ function canvasDrop(e) {
   addNode(palType, w.x, w.y);
   palType = null;
 }
+
+// ── Robuste JS-Drag-Handler (Capture-Phase, funktioniert auch wenn Kind-Elemente das Event abfangen) ──
+(function initDragDrop() {
+  const area = document.getElementById('canvas-area');
+
+  area.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }, true); // capture = true → fängt Event VOR Kind-Elementen ab
+
+  area.addEventListener('drop', e => {
+    e.preventDefault();
+    if (!palType) return;
+    const w = screenToWorld(e.clientX, e.clientY);
+    addNode(palType, w.x, w.y);
+    palType = null;
+  }, true);
+
+  // ── Touch-Support für Mobile ──
+  let touchDragType = null, touchGhost = null;
+
+  function initTouchDrag() {
+    document.querySelectorAll('.pal-item[data-type]').forEach(item => {
+      item.addEventListener('touchstart', e => {
+        touchDragType = item.dataset.type;
+        const t = e.touches[0];
+        touchGhost = item.cloneNode(true);
+        touchGhost.style.cssText = [
+          'position:fixed', 'z-index:9999', 'pointer-events:none',
+          'opacity:0.8', 'transform:scale(0.9) translate(-50%,-50%)',
+          'transition:none', 'left:' + t.clientX + 'px', 'top:' + t.clientY + 'px'
+        ].join(';');
+        document.body.appendChild(touchGhost);
+        e.preventDefault();
+      }, { passive: false });
+
+      item.addEventListener('touchmove', e => {
+        if (!touchGhost) return;
+        const t = e.touches[0];
+        touchGhost.style.left = t.clientX + 'px';
+        touchGhost.style.top  = t.clientY + 'px';
+        e.preventDefault();
+      }, { passive: false });
+
+      item.addEventListener('touchend', e => {
+        if (touchGhost) { touchGhost.remove(); touchGhost = null; }
+        if (!touchDragType) return;
+        const t = e.changedTouches[0];
+        const rect = area.getBoundingClientRect();
+        if (t.clientX >= rect.left && t.clientX <= rect.right &&
+            t.clientY >= rect.top  && t.clientY <= rect.bottom) {
+          const w = screenToWorld(t.clientX, t.clientY);
+          addNode(touchDragType, w.x, w.y);
+        }
+        touchDragType = null;
+        e.preventDefault();
+      }, { passive: false });
+    });
+  }
+
+  // DOM ist beim Script-Load schon bereit
+  initTouchDrag();
+})();
 
 // ════════════════════════════════════════════════════════════
 // NODE MANAGEMENT
@@ -186,7 +264,7 @@ function addNode(type, x, y) {
     mac: genMAC(), on: true,
     dhcpEnabled: false,
     autoroute: type === 'router',
-    installedApps: [],
+    installedApps: (NODE_DEFS[type]?.defaultApps || []).slice(),
     routingTable: [],
   };
   nodes.push(n);
@@ -198,6 +276,7 @@ function addNode(type, x, y) {
 function buildNodeEl(n) {
   const el = document.createElement('div');
   el.className = 'dnode' + (n.on ? '' : ' off');
+  el.dataset.type = n.type;
   el.style.left = n.x + 'px'; el.style.top = n.y + 'px';
   el.innerHTML = `
     <div class="dn-body" style="border-color:${TYPES[n.type].color}50;background:${TYPES[n.type].bgColor}">
@@ -280,6 +359,35 @@ function getIcon(type) {
       <circle cx="16.5" cy="35" r="1.5" fill="#ffd600"/>
       <circle cx="22" cy="35" r="1.5" fill="#4caf50"/>
       <circle cx="27.5" cy="35" r="1.5" fill="#ff5252"/>
+    </svg>`,
+
+    // ── Hub ─────────────────────────────────────────────────────
+    hub: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="13" width="40" height="20" rx="3" fill="#e91e63"/>
+      <rect x="2" y="13" width="40" height="10" rx="3" fill="#f06292"/>
+      <rect x="4" y="15" width="36" height="6" rx="1.5" fill="#f8bbd9"/>
+      <circle cx="9" cy="27" r="2" fill="#880e4f"/>
+      <circle cx="15" cy="27" r="2" fill="#880e4f"/>
+      <circle cx="21" cy="27" r="2" fill="#880e4f"/>
+      <circle cx="27" cy="27" r="2" fill="#880e4f"/>
+      <circle cx="33" cy="27" r="2" fill="#880e4f"/>
+      <circle cx="39" cy="27" r="2" fill="#880e4f"/>
+      <text x="22" y="21" text-anchor="middle" font-size="6" fill="#fff" font-family="Arial" font-weight="bold">HUB</text>
+    </svg>`,
+
+    // ── WLAN Access Point ────────────────────────────────────────
+    ap: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="26" width="36" height="13" rx="3" fill="#00897b"/>
+      <rect x="4" y="26" width="36" height="7" rx="3" fill="#26a69a"/>
+      <circle cx="11" cy="34" r="2" fill="#004d40"/>
+      <circle cx="19" cy="34" r="2" fill="#4caf50"/>
+      <circle cx="27" cy="34" r="2" fill="#4caf50"/>
+      <circle cx="35" cy="34" r="2" fill="#4caf50"/>
+      <line x1="22" y1="24" x2="22" y2="18" stroke="#00897b" stroke-width="2.5"/>
+      <path d="M14 20 Q22 13 30 20" stroke="#00897b" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path d="M10 16 Q22 7 34 16" stroke="#26a69a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".7"/>
+      <path d="M7 12 Q22 1 37 12" stroke="#4db6ac" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".4"/>
+      <circle cx="22" cy="18" r="2.5" fill="#00897b"/>
     </svg>`,
 
     // ── Modem — DSL/Kabel-Modem (flache Box, blaue LEDs, Kabelanschluss unten) ──
@@ -444,7 +552,7 @@ function select(n) {
 
 function showCfg(n) {
   document.getElementById('cfw-name').textContent = n.name;
-  const typeLabels = { pc: 'PC', laptop: 'Laptop', router: 'Router', switch: 'Switch', server: 'Server', modem: 'Modem' };
+  const typeLabels = { pc: 'PC', laptop: 'Laptop', router: 'Router', switch: 'Switch', hub: 'Hub', ap: 'WLAN-AP', server: 'Server', modem: 'Modem' };
   document.getElementById('cfw-type').textContent = typeLabels[n.type] || n.type;
   document.getElementById('cfg-name').value = n.name;
   document.getElementById('cfg-mac').value = n.mac;
@@ -575,43 +683,326 @@ function toggleApp(n, appId) {
 // ════════════════════════════════════════════════════════════
 // DESKTOP OPENER — opens the right app window
 // ════════════════════════════════════════════════════════════
+let desktopNode    = null;
+let _dtLastNodeId  = null;  // Cache: grid nur bei Gerätewechsel neu bauen
+let _dtMovedInfo   = null;  // { elements: [], originalParent: el }
+let _dtBrowserState = { url: '', html: '' };
+let _dtHist = [], _dtHistIdx = -1;
+
+// ══ Desktop öffnen ══════════════════════════════════════════
 function openDesktop(n) {
-  if (!n.on) { notify('Gerät ist ausgeschaltet', 'error'); return; }
-  if (n.type === 'switch') { notify(`${n.name}: Kein Desktop verfügbar`, 'error'); return; }
+  if (!n.on)              { notify('Gerät ist ausgeschaltet', 'error'); return; }
+  if (n.type === 'switch'){ notify(`${n.name}: Kein Desktop`, 'error'); return; }
+  if (n.type === 'hub')   { notify(`${n.name}: Hub hat kein Desktop — er leitet Pakete an ALLE Ports weiter (Broadcast)`, 'warn'); return; }
+  if (n.type === 'modem') { notify(`${n.name}: Kein Desktop`, 'error'); return; }
+  if (n.type === 'ap')    { notify(`${n.name}: WLAN-AP hat kein Desktop — er verbindet WLAN-Clients mit dem Netz`, 'warn'); return; }
+
+  const sameNode = (desktopNode?.id === n.id);
+  desktopNode   = n;
+  appWindowNode = n;
+  cmdNode       = n;
+
+  // Titelleiste aktualisieren
+  document.getElementById('dt-devname').textContent   = n.name;
+  document.getElementById('dt-ipbadge').textContent   = n.ip || 'Keine IP';
+  document.getElementById('dt-typebadge').textContent = n.type.toUpperCase();
+  document.getElementById('dt-prompt').textContent    = n.name + '>';
+  const led = document.getElementById('dt-powerled');
+  led.className = 'dt-powerled' + (n.on ? ' on' : '');
+
+  // Grid nur neu aufbauen wenn anderes Gerät geöffnet wird
+  if (!sameNode) {
+    _dtLastNodeId = n.id;
+    _dtBrowserState = { url: '', html: '' }; // Browser-State bei neuem Gerät resetten
+
+    const grid   = document.getElementById('dt-apps-grid');
+    const noApps = document.getElementById('dt-no-apps');
+    grid.innerHTML = '';
+    grid.style.display = 'grid';
+    noApps.style.display = 'none';
+
+    const inst = n.installedApps || [];
+    inst.forEach(appId => {
+      const meta = APP_META[appId]; if (!meta) return;
+      const d = document.createElement('div');
+      d.className = 'dt-app-btn'; d.dataset.app = appId;
+      d.innerHTML = `<span class="dt-app-em">${meta.icon}</span><span class="dt-app-nm">${meta.name}</span>`;
+      d.onclick = () => _dtOpenApp(appId);
+      grid.appendChild(d);
+    });
+  }
+
+  // Terminal zurücksetzen & anzeigen (nur bei neuem Gerät vollständig neu)
+  _dtShowTerminal();
+  if (!sameNode) {
+    const out = document.getElementById('dt-output');
+    out.innerHTML = '';
+    _dtHist = []; _dtHistIdx = -1;
+    const inst = n.installedApps || [];
+    _dtPrint(`NetSim Terminal — ${n.name}`, 'info');
+    _dtPrint(`Typ: ${n.type.toUpperCase()}   MAC: ${n.mac}`, 'sys');
+    _dtPrint(`IP: ${n.ip||'(nicht gesetzt)'}   Maske: ${n.mask||'—'}   GW: ${n.gw||'—'}`, 'sys');
+    if (inst.length) _dtPrint(`Apps: ${inst.map(a=>APP_META[a]?.name).filter(Boolean).join(', ')}`, 'sys');
+    _dtPrint('', 'sys');
+    _dtPrint("Tippe 'help' für alle Befehle.", 'sys');
+    _dtPrint('', 'sys');
+  }
+
+  const overlay = document.getElementById('dt-overlay');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => {
+    const inp = document.getElementById('dt-input');
+    if (inp) inp.focus();
+  });
+}
+
+// ══ App inline im Desktop öffnen ════════════════════════════
+const _dtWinMap = {
+  webserver:'win-webserver', dnsserver:'win-dns',  dhcpserver:'win-dhcp',
+  email:'win-email', routing:'win-routing', firewall:'win-firewall',
+};
+
+function _dtOpenApp(appId) {
+  const n = desktopNode; if (!n) return;
   appWindowNode = n;
 
-  // Open terminal by default
-  if (mode === 'sim') {
-    openCMD(n);
-    return;
+  // Vorherige DOM-Moves sicher zurückgeben
+  if (_dtMovedInfo) {
+    const { elements, originalParent } = _dtMovedInfo;
+    if (originalParent && elements) {
+      elements.forEach(el => { if (el && originalParent) originalParent.appendChild(el); });
+    }
+    _dtMovedInfo = null;
   }
-  openCMD(n);
+
+  // App-Daten initialisieren
+  if (appId==='dnsserver')  initDNSWindow();
+  if (appId==='dhcpserver') initDHCPWindow();
+  if (appId==='webserver')  initWebserverWindow();
+  if (appId==='routing')    initRoutingWindow();
+  if (appId==='firewall')   initFirewallWindow();
+
+  const meta  = APP_META[appId];
+  const panel = document.getElementById('dt-app-panel');
+  panel.innerHTML = '';
+
+  // ── Webbrowser: direkt rendern (kein DOM-Move) ──
+  if (appId === 'webbrowser') {
+    const savedUrl  = _dtBrowserState.url  || '';
+    const savedHtml = _dtBrowserState.html || `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#94a3b8">
+        <div style="font-size:42px">🌐</div>
+        <div style="font-size:13px">IP-Adresse oder Hostname eingeben und Enter drücken</div>
+      </div>`;
+    panel.innerHTML = `
+      <div style="display:flex;gap:8px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;align-items:center">
+        <input id="dt-browser-url" placeholder="http://192.168.1.1 oder Hostname"
+          value="${savedUrl.replace(/"/g,'&quot;')}"
+          style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:7px;padding:7px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);outline:none;transition:border-color .15s"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter')dtBrowserGo()" />
+        <button onclick="dtBrowserGo()"
+          style="background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 16px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;font-size:13px;white-space:nowrap;transition:opacity .15s"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Öffnen</button>
+      </div>
+      <div id="dt-browser-view" style="flex:1;overflow-y:auto;background:#fff;min-height:0">${savedHtml}</div>`;
+    _dtMovedInfo = null;
+
+  // ── Apps ohne eigenes Fenster → Info-Karte ──
+  } else if (!_dtWinMap[appId]) {
+    panel.innerHTML = `
+      <div style="padding:28px 24px;color:var(--text);font-family:'Nunito',sans-serif">
+        <div style="font-size:28px;margin-bottom:12px">${meta?.icon||'📦'}</div>
+        <div style="font-size:16px;font-weight:800;margin-bottom:6px">${meta?.name||appId}</div>
+        <div style="font-size:13px;color:var(--dim);margin-bottom:16px">${meta?.desc||''}</div>
+        <div style="font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px">
+          ✓ Dienst läuft automatisch im Hintergrund.
+        </div>
+      </div>`;
+    _dtMovedInfo = null;
+
+  // ── Alle anderen Apps: DOM-Move ──
+  } else {
+    const winEl = document.getElementById(_dtWinMap[appId]);
+    const body  = winEl?.querySelector('.aw-body');
+    if (body) {
+      panel.appendChild(body);
+      _dtMovedInfo = { elements: [body], originalParent: winEl };
+    } else {
+      panel.innerHTML = `
+        <div style="padding:28px 24px;color:var(--text);font-family:'Nunito',sans-serif">
+          <div style="font-size:28px;margin-bottom:12px">${meta?.icon||'📦'}</div>
+          <div style="font-size:16px;font-weight:800">${meta?.name||appId}</div>
+          <div style="margin-top:8px;font-size:12px;color:var(--muted)">App konnte nicht geladen werden.</div>
+        </div>`;
+      _dtMovedInfo = null;
+    }
+  }
+
+  // Header & Buttons
+  document.querySelectorAll('.dt-app-btn').forEach(b => b.classList.toggle('active', b.dataset.app===appId));
+  document.getElementById('dt-right-label').textContent = (meta?.icon||'') + '  ' + (meta?.name||appId);
+  document.getElementById('dt-back-btn').style.display  = 'flex';
+  document.getElementById('dt-cls-btn').style.display   = 'none';
+  _dtSwitchView('panel');
 }
+
+// ══ Zurück zum Terminal ══════════════════════════════════════
+function dtBack() {
+  if (_dtMovedInfo) {
+    const { elements, originalParent } = _dtMovedInfo;
+    if (originalParent && elements) {
+      elements.forEach(el => { if (el && originalParent) originalParent.appendChild(el); });
+    }
+    _dtMovedInfo = null;
+  }
+  const panel = document.getElementById('dt-app-panel');
+  if (panel) { panel.innerHTML = ''; panel.style.display = 'none'; }
+  _dtShowTerminal();
+}
+
+function _dtSwitchView(to) {
+  const term  = document.getElementById('dt-term');
+  const panel = document.getElementById('dt-app-panel');
+  if (to === 'panel') {
+    term.style.display  = 'none';
+    panel.style.display = 'flex';
+    panel.style.opacity = '0'; panel.style.transform = 'translateX(8px)';
+    requestAnimationFrame(() => {
+      panel.style.transition = 'opacity .16s ease, transform .16s ease';
+      panel.style.opacity = '1'; panel.style.transform = 'translateX(0)';
+    });
+  } else {
+    panel.style.display = 'none';
+    term.style.display  = 'flex';
+    term.style.opacity  = '0'; term.style.transform = 'translateX(-8px)';
+    requestAnimationFrame(() => {
+      term.style.transition = 'opacity .16s ease, transform .16s ease';
+      term.style.opacity = '1'; term.style.transform = 'translateX(0)';
+    });
+  }
+}
+
+function _dtShowTerminal() {
+  document.getElementById('dt-back-btn').style.display  = 'none';
+  document.getElementById('dt-cls-btn').style.display   = '';
+  document.getElementById('dt-right-label').textContent = 'Terminal';
+  document.querySelectorAll('.dt-app-btn').forEach(b => b.classList.remove('active'));
+  _dtApplyTheme();
+  _dtSwitchView('term');
+  setTimeout(() => { const i = document.getElementById('dt-input'); if(i) i.focus(); }, 50);
+}
+
+function _dtApplyTheme() {
+  const dark   = document.body.classList.contains('dark');
+  const bg     = dark ? '#0d1117'               : '#f2efe8';
+  const text   = dark ? '#e6edf3'               : '#1a1a1a';
+  const prompt = dark ? '#4ade80'               : '#16803c';
+  const bdr    = dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.10)';
+  const out    = document.getElementById('dt-output');
+  const inpRow = document.getElementById('dt-input-row');
+  const hints  = document.getElementById('dt-hints');
+  const inp    = document.getElementById('dt-input');
+  const prmpt  = document.getElementById('dt-prompt');
+  if (out)    { out.style.background = bg;    out.style.color = text; }
+  if (inpRow) { inpRow.style.background = bg; inpRow.style.borderTopColor = bdr; }
+  if (hints)  { hints.style.background  = bg; hints.style.borderTopColor  = bdr; }
+  if (inp)    { inp.style.color = text; }
+  if (prmpt)  { prmpt.style.color = prompt; }
+}
+
+// ══ Desktop schließen ════════════════════════════════════════
+function closeDesktop() {
+  dtBack();
+  document.getElementById('dt-overlay').style.display = 'none';
+  desktopNode = null; cmdNode = null;
+}
+
+function openTerminalFromDesktop() { dtBack(); }
+
+// ══ Terminal-Ausgabe ═════════════════════════════════════════
+function _dtPrint(msg, type='cmd') {
+  const out = document.getElementById('dt-output'); if (!out) return;
+  const d = document.createElement('div');
+  d.className = 'dtl ' + type; d.textContent = msg;
+  out.appendChild(d); out.scrollTop = out.scrollHeight;
+}
+
+function dtClear() {
+  const out = document.getElementById('dt-output'); if (out) out.innerHTML = '';
+}
+
+function dtFill(cmd) {
+  const inp = document.getElementById('dt-input'); if (!inp) return;
+  inp.value = cmd; inp.focus();
+}
+
+function dtKey(e) {
+  const inp = document.getElementById('dt-input');
+  if (e.key === 'Enter') {
+    const raw = inp.value.trim(); inp.value = '';
+    if (!raw || !cmdNode) return;
+    _dtHist.push(raw); _dtHistIdx = -1;
+    _dtPrint(cmdNode.name + '> ' + raw, 'cmd');
+    window._dtActive = true; handleCmd(raw); window._dtActive = false;
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (_dtHistIdx < _dtHist.length-1) { _dtHistIdx++; inp.value = _dtHist[_dtHist.length-1-_dtHistIdx]; }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (_dtHistIdx > 0) { _dtHistIdx--; inp.value = _dtHist[_dtHist.length-1-_dtHistIdx]; }
+    else { _dtHistIdx=-1; inp.value=''; }
+  } else if (e.key === 'Escape') { closeDesktop(); }
+}
+
+// ══ Klick außerhalb = schließen ══════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('dt-overlay')?.addEventListener('click', e => {
+    if (e.target.id === 'dt-overlay') closeDesktop();
+  });
+  // Fenster draggbar machen
+  const win = document.getElementById('dt-win');
+  const bar = document.getElementById('dt-titlebar');
+  if (win && bar) {
+    let dn=false,sx=0,sy=0,ox=0,oy=0;
+    bar.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('dt-dot')) return;
+      dn=true; sx=e.clientX; sy=e.clientY;
+      const r=win.getBoundingClientRect(); ox=r.left; oy=r.top;
+      win.style.position='fixed'; win.style.margin='0';
+      win.style.left=ox+'px'; win.style.top=oy+'px';
+      win.style.transform='none';
+    });
+    document.addEventListener('mousemove',e=>{if(!dn)return; win.style.left=(ox+e.clientX-sx)+'px'; win.style.top=(oy+e.clientY-sy)+'px';});
+    document.addEventListener('mouseup',()=>dn=false);
+  }
+});
 
 function openAppWindow(appId, n) {
   appWindowNode = n || selNode;
+
+  // Wenn Desktop offen → App direkt darin zeigen
+  if (document.getElementById('dt-overlay')?.style.display === 'flex') {
+    if (n) desktopNode = n;
+    _dtOpenApp(appId);
+    return;
+  }
+
   closeAllApps();
   const map = {
     webserver: 'win-webserver', dnsserver: 'win-dns', dhcpserver: 'win-dhcp',
-    webbrowser: 'win-browser', email: 'win-email', echoclient: 'win-echo',
-    echoserver: 'win-echo', ftpclient: 'win-ftp', ftpserver: 'win-ftp',
-    routing: 'win-routing',
+    webbrowser: 'win-browser',  email: 'win-email',   routing: 'win-routing',
+    firewall: 'win-firewall',
   };
   const winId = map[appId];
   if (!winId) { openCMD(appWindowNode); return; }
-
-  // Populate based on context
   if (appId === 'dnsserver') initDNSWindow();
   if (appId === 'dhcpserver') initDHCPWindow();
   if (appId === 'webserver') initWebserverWindow();
-  if (appId === 'echoserver' || appId === 'echoclient') initEchoWindow(appId === 'echoserver');
   if (appId === 'routing') initRoutingWindow();
-
+  if (appId === 'firewall') initFirewallWindow();
   const win = document.getElementById(winId);
-  if (win) {
-    win.classList.add('open');
-    win.style.zIndex = 600 + nextId++;
-  }
+  if (win) { win.classList.add('open'); win.style.zIndex = 600 + nextId++; }
 }
 
 function closeAllApps() {
@@ -620,11 +1011,75 @@ function closeAllApps() {
 function closeApp(which) {
   const map = {
     browser: 'win-browser', dns: 'win-dns', dhcp: 'win-dhcp', webserver: 'win-webserver',
-    email: 'win-email', echo: 'win-echo', routing: 'win-routing', ftp: 'win-ftp'
+    email: 'win-email', echo: 'win-echo', routing: 'win-routing',
+    firewall: 'win-firewall',
   };
   const el = document.getElementById(map[which]);
   if (el) el.classList.remove('open');
 }
+
+// ════════════════════════════════════════════════════════════
+// FIREWALL
+// ════════════════════════════════════════════════════════════
+let fwRules = {}; // nodeId -> [{action, port, src}]
+
+function initFirewallWindow() {
+  const n = appWindowNode || desktopNode;
+  if (!n) return;
+  if (!fwRules[n.id]) fwRules[n.id] = [
+    { action: 'block', port: '23',   src: '*', desc: 'Telnet blockieren' },
+    { action: 'allow', port: '80',   src: '*', desc: 'HTTP erlauben' },
+    { action: 'allow', port: '443',  src: '*', desc: 'HTTPS erlauben' },
+  ];
+  renderFwRules(n);
+  const logEl = document.getElementById('fw-log');
+  if (logEl) logEl.textContent = `Firewall auf ${n.name} — ${fwRules[n.id].length} Regel(n) aktiv.`;
+}
+
+function renderFwRules(n) {
+  const list = document.getElementById('fw-rules-list');
+  if (!list) return;
+  const rules = fwRules[n.id] || [];
+  if (!rules.length) { list.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:4px">Keine Regeln definiert.</div>'; return; }
+  list.innerHTML = rules.map((r, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:var(--panel);border:1px solid var(--border)">
+      <span style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:4px;
+        background:${r.action==='block'?'#fee2e2':'#dcfce7'};
+        color:${r.action==='block'?'#dc2626':'#16a34a'}">${r.action==='block'?'BLOCK':'ALLOW'}</span>
+      <span style="flex:1;color:var(--text)">Port <b>${r.port}</b> ${r.src!=='*'?'von '+r.src:''} ${r.desc?'<span style="color:var(--muted)">— '+r.desc+'</span>':''}</span>
+      <button onclick="fwDeleteRule(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:0 2px">×</button>
+    </div>`).join('');
+}
+
+function fwAddRule() {
+  const n = appWindowNode || desktopNode; if (!n) return;
+  const action = document.getElementById('fw-action').value;
+  const port   = document.getElementById('fw-port').value.trim() || '*';
+  const src    = document.getElementById('fw-src').value.trim() || '*';
+  if (!fwRules[n.id]) fwRules[n.id] = [];
+  fwRules[n.id].push({ action, port, src });
+  document.getElementById('fw-port').value = '';
+  document.getElementById('fw-src').value  = '';
+  renderFwRules(n);
+  const logEl = document.getElementById('fw-log');
+  if (logEl) logEl.textContent = `✓ Regel hinzugefügt: ${action.toUpperCase()} Port ${port} von ${src}`;
+  log(`${n.name}: Firewall-Regel — ${action.toUpperCase()} Port ${port}`, 'info');
+}
+
+function fwDeleteRule(idx) {
+  const n = appWindowNode || desktopNode; if (!n) return;
+  fwRules[n.id]?.splice(idx, 1);
+  renderFwRules(n);
+}
+
+function fwToggle() {
+  const enabled = document.getElementById('fw-enabled').checked;
+  const label   = document.getElementById('fw-status-label');
+  if (label) { label.textContent = enabled ? 'Aktiv' : 'Deaktiviert'; label.style.color = enabled ? '#22c55e' : '#ef4444'; }
+  const n = appWindowNode || desktopNode;
+  if (n) log(`${n.name}: Firewall ${enabled?'aktiviert':'deaktiviert'}`, enabled?'success':'warn');
+}
+
 
 // ════════════════════════════════════════════════════════════
 // CABLES
@@ -665,12 +1120,33 @@ function setMode(m) {
   ['design', 'sim'].forEach(x => {
     document.getElementById('mo-' + x)?.classList.toggle('active', m === x);
   });
+  document.body.classList.toggle('sim-mode', m === 'sim');
   const modeNames = { design: '✏ Entwurfsmodus', sim: '▶ Simulationsmodus' };
   document.getElementById('sb-mode').textContent = modeNames[m];
   if (cableMode && m !== 'design') toggleCable();
   if (deleteMode && m !== 'design') toggleDelete();
   log(modeNames[m] + ' aktiviert', 'info');
 }
+
+function toggleTheme() {
+  const dark = document.body.classList.toggle('dark');
+  localStorage.setItem('netsim-theme', dark ? 'dark' : 'light');
+  document.getElementById('theme-icon-sun').style.display  = dark ? 'none'  : '';
+  document.getElementById('theme-icon-moon').style.display = dark ? ''      : 'none';
+  if (typeof _dtApplyTheme === 'function') _dtApplyTheme();
+}
+
+// Restore saved theme on load
+(function() {
+  const saved = localStorage.getItem('netsim-theme');
+  if (saved === 'dark') {
+    document.body.classList.add('dark');
+    const sun  = document.getElementById('theme-icon-sun');
+    const moon = document.getElementById('theme-icon-moon');
+    if (sun)  sun.style.display  = 'none';
+    if (moon) moon.style.display = '';
+  }
+})();
 
 function toggleCable() {
   if (mode !== 'design') { notify('Nur im Entwurfsmodus', 'error'); return; }
@@ -782,7 +1258,9 @@ function animatePkt(path, color, onDone) {
 function openCMD(n) {
   if (n.type === 'switch') { notify(`${n.name}: Kein Terminal verfügbar`, 'error'); return; }
   cmdNode = n;
-  document.getElementById('cmd-overlay').classList.add('visible');
+  const overlay = document.getElementById('cmd-overlay');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => overlay.classList.add('visible'));
   document.getElementById('cmd-name').textContent = n.name;
   document.getElementById('cmd-ip').textContent = n.ip || 'Keine IP';
   document.getElementById('cmd-prompt').textContent = n.name + '>';
@@ -801,15 +1279,20 @@ function openCMD(n) {
 function openTerminal() {
   if (!selNode) return;
   if (mode !== 'sim') setMode('sim');
-  openCMD(selNode);
+  openDesktop(selNode);
 }
 
 function closeCMD() {
-  document.getElementById('cmd-overlay').classList.remove('visible');
-  setTimeout(() => cmdNode = null, 150);
+  const overlay = document.getElementById('cmd-overlay');
+  overlay.classList.remove('visible');
+  setTimeout(() => { overlay.style.display = 'none'; cmdNode = null; }, 200);
 }
 
 function cPrint(msg, type = 'cmd') {
+  // Wenn Desktop-Terminal aktiv → dort ausgeben
+  if (window._dtActive || document.getElementById('dt-overlay')?.style.display === 'flex') {
+    _dtPrint(msg, type); return;
+  }
   const out = document.getElementById('cmd-output');
   const d = document.createElement('div');
   d.className = 'cl ' + type; d.textContent = msg;
@@ -842,30 +1325,43 @@ function handleCmd(raw) {
   const cmd = parts[0].toLowerCase();
   const n = cmdNode;
 
-  if (cmd === 'cls' || cmd === 'clear') { document.getElementById('cmd-output').innerHTML = ''; return; }
+  if (cmd === 'cls' || cmd === 'clear') {
+    if (document.getElementById('dt-overlay')?.style.display === 'flex') {
+      const out = document.getElementById('dt-output'); if (out) out.innerHTML = '';
+    } else {
+      document.getElementById('cmd-output').innerHTML = '';
+    }
+    return;
+  }
 
   if (cmd === 'help') {
     cPrint('', 'sys');
-    cPrint('╔══════════════════════════════════════╗', 'info');
-    cPrint('║       NetSim — Befehle               ║', 'info');
-    cPrint('╚══════════════════════════════════════╝', 'info');
+    cPrint('╔══════════════════════════════════════════╗', 'info');
+    cPrint('║       NetSim V1.2 — Befehle              ║', 'info');
+    cPrint('╚══════════════════════════════════════════╝', 'info');
     cPrint('', 'sys');
-    cPrint('  ping <IP>           Gerät anpingen — ist es erreichbar?', 'ok');
-    cPrint('  traceroute <IP>     Den Weg eines Pakets verfolgen', 'ok');
-    cPrint('  ipconfig            Eigene IP-Adresse anzeigen', 'ok');
-    cPrint('  arp                 Bekannte Geräte im Netz anzeigen', 'ok');
-    cPrint('  nslookup <Name>     Hostname → IP auflösen (DNS)', 'ok');
-    cPrint('  hostname            Name dieses Geräts anzeigen', 'ok');
-    cPrint('  cls                 Bildschirm leeren', 'ok');
+    cPrint('  Netzwerk:', 'info');
+    cPrint('  ping <IP>           Gerät anpingen', 'ok');
+    cPrint('  traceroute <IP>     Pakete verfolgen', 'ok');
+    cPrint('  ipconfig            IP-Einstellungen anzeigen', 'ok');
+    cPrint('  ifconfig            Wie ipconfig + Subnetzinfo', 'ok');
+    cPrint('  arp                 ARP-Tabelle anzeigen', 'ok');
+    cPrint('  netstat             Aktive Verbindungen', 'ok');
+    cPrint('  route               Routing-Tabelle', 'ok');
+    cPrint('  nslookup <n>     DNS-Auflösung', 'ok');
     cPrint('', 'sys');
-    cPrint('  Beispiele:', 'info');
-    cPrint('    ping 192.168.1.1          Router anpingen', 'sys');
-    cPrint('    ping www.schule.de        Webseite anpingen', 'sys');
-    cPrint('    traceroute 192.168.1.100  Weg zum Server', 'sys');
-    cPrint('    nslookup www.schule.de    IP herausfinden', 'sys');
+    cPrint('  Dateisystem:', 'info');
+    cPrint('  ls / dir            Dateien auflisten', 'ok');
+    cPrint('  cat <Datei>         Dateiinhalt anzeigen', 'ok');
+    cPrint('', 'sys');
+    cPrint('  Dienste:', 'info');
+    cPrint('  ssh <IP>            SSH-Verbindung', 'ok');
+    cPrint('  wget <URL>          Webseite herunterladen', 'ok');
+    cPrint('  whoami              Aktuelles Gerät', 'ok');
+    cPrint('  hostname / cls      Name / Terminal leeren', 'ok');
     cPrint('', 'sys');
     if (n.installedApps.length) {
-      cPrint('  Installierte Apps (Reiter "Apps" zum Öffnen):', 'info');
+      cPrint('  Apps (im Desktop öffnen):', 'info');
       n.installedApps.forEach(a => cPrint(`    • ${APP_META[a]?.name} — ${APP_META[a]?.desc}`, 'sys'));
       cPrint('', 'sys');
     }
@@ -965,8 +1461,175 @@ function handleCmd(raw) {
     return;
   }
 
+  // ── Extended commands ──
+  if (handleCmdExtended(raw, n)) return;
+
   cPrint(`Unbekannter Befehl: '${cmd}'`, 'err');
   cPrint("Tippe 'help' für eine Liste aller Befehle.", 'warn');
+}
+
+// ─────────────────────────────────────────────────────────────
+// EXTENDED TERMINAL COMMANDS (netstat, route, ifconfig, etc.)
+// ─────────────────────────────────────────────────────────────
+function handleCmdExtended(raw, n) {
+  const parts = raw.trim().split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+
+  if (cmd === 'ifconfig' || cmd === 'ipconfig /all') {
+    // Same as ipconfig but with more details
+    cPrint('', 'sys');
+    cPrint(`Ethernet-Adapter — ${n.name}:`, 'info');
+    cPrint('', 'sys');
+    cPrint(`  Gerätename    : ${n.name}`, 'sys');
+    cPrint(`  Gerätetyp     : ${n.type.toUpperCase()}`, 'sys');
+    cPrint(`  MAC-Adresse   : ${n.mac}`, 'sys');
+    cPrint('', 'sys');
+    cPrint(`  IPv4-Adresse  : ${n.ip || '(nicht konfiguriert)'}`, n.ip ? 'ok' : 'warn');
+    cPrint(`  Subnetzmaske  : ${n.mask || '—'}`, 'sys');
+    cPrint(`  Gateway       : ${n.gw || '(nicht gesetzt)'}`, n.gw ? 'sys' : 'warn');
+    cPrint(`  DNS-Server    : ${n.dns || '(nicht gesetzt)'}`, 'sys');
+    cPrint(`  DHCP          : ${n.dhcpEnabled ? 'aktiv' : 'deaktiviert'}`, 'sys');
+    if (n.ip && n.mask) {
+      const info = subnetInfo(n.ip, prefixFromMask(n.mask));
+      if (info) {
+        cPrint('', 'sys');
+        cPrint(`  Netzadresse   : ${info.network}`, 'sys');
+        cPrint(`  Broadcast     : ${info.broadcast}`, 'sys');
+        cPrint(`  Netz (CIDR)   : ${info.cidr}`, 'sys');
+      }
+    }
+    cPrint('', 'sys');
+    return true;
+  }
+
+  if (cmd === 'whoami') {
+    cPrint('', 'sys');
+    cPrint(`  Benutzer: Administrator`, 'ok');
+    cPrint(`  Gerät  : ${n.name} (${n.type.toUpperCase()})`, 'ok');
+    cPrint(`  IP     : ${n.ip || 'keine'}`, 'sys');
+    cPrint('', 'sys');
+    return true;
+  }
+
+  if (cmd === 'netstat') {
+    cPrint('', 'sys');
+    cPrint('Aktive Verbindungen:', 'info');
+    cPrint('', 'sys');
+    cPrint('  Protokoll  Lokale Adresse      Remote-Adresse      Status', 'sys');
+    const connected = neighbors(n).filter(x => x.ip && x.on);
+    if (!connected.length) {
+      cPrint('  (Keine aktiven Verbindungen)', 'warn');
+    } else {
+      connected.forEach(nb => {
+        const proto = nb.installedApps?.includes('webserver') ? 'TCP' :
+                      'ICMP';
+        const port = nb.installedApps?.includes('webserver') ? ':80' :
+                     '';
+        cPrint(`  ${proto.padEnd(11)}${(n.ip+':1024').padEnd(20)}${(nb.ip+port).padEnd(20)}HERGESTELLT`, 'ok');
+      });
+    }
+    if (n.installedApps?.includes('webserver') && wsNodes[n.id]?.running) {
+      cPrint(`  TCP          ${(n.ip+':80').padEnd(20)}0.0.0.0:*            LAUSCHEN`, 'ok');
+    }
+
+    cPrint('', 'sys');
+    return true;
+  }
+
+  if (cmd === 'route') {
+    const sub = parts[1]?.toLowerCase();
+    cPrint('', 'sys');
+    cPrint(`IPv4-Routentabelle von ${n.name}:`, 'info');
+    cPrint('', 'sys');
+    cPrint('  Netzwerkziel      Netzwerkmaske     Gateway           Metrik', 'sys');
+    // Default local route
+    if (n.ip) {
+      const netAddr = n.ip.split('.').slice(0, 3).join('.') + '.0';
+      cPrint(`  ${netAddr.padEnd(18)}${(n.mask||'255.255.255.0').padEnd(18)}Auf Verbindung  1`, 'ok');
+      cPrint(`  ${'127.0.0.0'.padEnd(18)}${'255.0.0.0'.padEnd(18)}${'127.0.0.1'.padEnd(18)}1`, 'sys');
+    }
+    if (n.gw) {
+      cPrint(`  ${'0.0.0.0'.padEnd(18)}${'0.0.0.0'.padEnd(18)}${n.gw.padEnd(18)}1`, 'ok');
+    }
+    (n.routingTable || []).forEach(r => {
+      cPrint(`  ${r.dest.padEnd(18)}${r.mask.padEnd(18)}${r.gw.padEnd(18)}1`, 'ok');
+    });
+    cPrint('', 'sys');
+    return true;
+  }
+
+  if (cmd === 'ls' || cmd === 'dir') {
+    cPrint('', 'sys');
+    cPrint(`Verzeichnis: C:\\Benutzer\\${n.name}\\`, 'info');
+    cPrint('', 'sys');
+    const files = [];
+    if (!files.length) cPrint('  (Keine Dateien vorhanden)', 'warn');
+    else files.forEach(f => cPrint(`  📄 ${f}`, 'ok'));
+    cPrint('', 'sys');
+    cPrint(`  ${files.length} Datei(en)   Apps: ${n.installedApps.length ? n.installedApps.map(a=>APP_META[a]?.name).join(', ') : 'keine'}`, 'sys');
+    cPrint('', 'sys');
+    return true;
+  }
+
+  if (cmd === 'cat' || cmd === 'type') {
+    const fname = parts[1];
+    if (!fname) { cPrint('Syntax: cat <dateiname>', 'err'); return true; }
+    cPrint(`Datei '${fname}' nicht gefunden.`, 'err');
+    return true;
+  }
+
+  if (cmd === 'ssh') {
+    const target = parts[1];
+    if (!target) { cPrint('Syntax: ssh <IP|Hostname>', 'err'); return true; }
+    const ip = resolveHost(target, n);
+    const dst = nodes.find(x => x.ip === ip);
+    if (!dst || !dst.on) { cPrint(`ssh: Verbindung zu ${target} verweigert (Host nicht erreichbar)`, 'err'); return true; }
+    const path = findPath(n, ip);
+    if (!path) { cPrint(`ssh: Kein Netzwerkpfad zu ${ip}`, 'err'); return true; }
+    animatePkt(path, '#7c3aed');
+    setTimeout(() => {
+      cPrint('', 'sys');
+      cPrint(`SSH-Verbindung zu ${dst.name} (${ip}) hergestellt.`, 'ok');
+      cPrint(`[${dst.name}] ~ Hinweis: SSH-Simulation — Befehle werden lokal ausgeführt.`, 'sys');
+      cPrint(`[${dst.name}] ~ Tippe 'exit' um die Session zu beenden.`, 'sys');
+      cPrint('', 'sys');
+      if (captureActive) addCapture('SSH', `${n.ip} → ${ip} CONNECT`);
+      log(`SSH: ${n.name} → ${dst.name}`, 'packet');
+    }, 600);
+    return true;
+  }
+
+  if (cmd === 'wget' || cmd === 'curl') {
+    const url = parts[1];
+    if (!url) { cPrint(`Syntax: ${cmd} <URL>`, 'err'); return true; }
+    let host = url.replace(/^https?:\/\//, '').split('/')[0];
+    const ip = resolveHost(host, n);
+    const dst = nodes.find(x => x.ip === ip);
+    cPrint('', 'sys');
+    cPrint(`${cmd}: Verbinde mit ${host} (${ip})...`, 'info');
+    if (!dst || !dst.on) { cPrint(`${cmd}: Verbindung fehlgeschlagen`, 'err'); return true; }
+    const ws = wsNodes[dst.id];
+    if (!dst.installedApps?.includes('webserver') || !ws?.running) {
+      cPrint(`${cmd}: Verbindung abgelehnt — kein Webserver aktiv`, 'err');
+      return true;
+    }
+    const path = findPath(n, ip);
+    if (!path) { cPrint(`${cmd}: Kein Netzwerkpfad`, 'err'); return true; }
+    animatePkt(path, '#2563eb', () => {
+      cPrint(`HTTP-Anfrage gesendet: GET ${url}`, 'sys');
+      cPrint(`HTTP/1.1 200 OK`, 'ok');
+      cPrint(`Content-Type: text/html`, 'sys');
+      const bytes = (ws.content || '').length;
+      cPrint(`Content-Length: ${bytes}`, 'sys');
+      cPrint('', 'sys');
+      cPrint(`"index.html" gespeichert [${bytes} Bytes]`, 'ok');
+      if (captureActive) addCapture('HTTP', `GET ${url} → 200 OK`);
+      log(`${cmd}: ${n.name} → ${dst.name} → 200 OK`, 'packet');
+    });
+    return true;
+  }
+
+  return false; // not handled
 }
 
 function resolveHost(name, fromNode) {
@@ -1299,6 +1962,77 @@ function browserGo() {
     <div style="padding:12px;font-family:Arial,sans-serif">${pageContent}</div>
   </div>`;
 }
+
+// ── Desktop-interner Browser ─────────────────────────────────
+function dtBrowserGo() {
+  const urlInput = document.getElementById('dt-browser-url');
+  const view     = document.getElementById('dt-browser-view');
+  if (!urlInput || !view) return;
+  const url = urlInput.value.trim();
+  if (!url) return;
+  _dtBrowserState.url = url;
+
+  const err = (icon, title, msg, tip) => {
+    const html = `<div style="padding:24px 20px;font-family:Arial,sans-serif">
+      <div style="font-size:22px;margin-bottom:8px">${icon}</div>
+      <b style="font-size:15px">${title}</b>
+      <p style="margin:10px 0 0;color:#444;font-size:13px">${msg}</p>
+      <div style="margin-top:12px;font-size:12px;background:#f8f9fa;border-left:3px solid #ccc;padding:8px 12px;border-radius:4px;color:#555">${tip}</div>
+    </div>`;
+    view.innerHTML = html; _dtBrowserState.html = html;
+  };
+
+  let host = url.replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+  let targetIP = host;
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    const lower = host.toLowerCase();
+    if (dnsEntries[lower]) targetIP = dnsEntries[lower];
+    else {
+      const dn = nodes.find(x => x.name.toLowerCase() === lower);
+      if (dn) targetIP = dn.ip;
+      else return err('🔴', 'DNS-Fehler', `Hostname <b>${host}</b> konnte nicht aufgelöst werden.`,
+        `💡 DNS-Server auf einem Server installieren, Eintrag für <b>${host}</b> anlegen und im PC als DNS-Server eintragen.`);
+    }
+  }
+
+  const serverNode = nodes.find(x => x.ip === targetIP);
+  if (!serverNode || !serverNode.on)
+    return err('🔴', 'Verbindung fehlgeschlagen', `Kein Gerät mit IP <b>${targetIP}</b> erreichbar oder ausgeschaltet.`,
+      '💡 Prüfe ob das Zielgerät eingeschaltet ist und die richtige IP konfiguriert hat.');
+
+  const browsingNode = appWindowNode;
+  if (browsingNode && browsingNode.ip !== targetIP) {
+    const path = findPath(browsingNode, targetIP);
+    if (!path) return err('🟠', 'Netzwerkfehler', `Kein Pfad zu <b>${targetIP}</b> gefunden.`,
+      '💡 Überprüfe Kabelverbindungen — alle Geräte auf dem Weg müssen verbunden sein.');
+  }
+
+  if (!serverNode.installedApps?.includes('webserver'))
+    return err('🔴', 'Fehler 404', `Auf <b>${serverNode.name}</b> (${targetIP}) ist kein Webserver installiert.`,
+      '💡 Server auswählen → Reiter "Apps" → Webserver installieren → öffnen → starten.');
+
+  const ws = wsNodes[serverNode.id];
+  if (!ws || !ws.running)
+    return err('🟠', 'Verbindung abgelehnt', `Webserver auf <b>${serverNode.name}</b> ist nicht gestartet.`,
+      '💡 Doppelklick auf den Server → App "Webserver" öffnen → "Server starten" klicken.');
+
+  if (browsingNode && browsingNode.ip !== targetIP) {
+    const path = findPath(browsingNode, targetIP);
+    if (path) animatePkt(path, '#2563eb');
+  }
+  if (captureActive) addCapture('HTTP', `GET http://${host}/ → ${targetIP}`);
+  log(`HTTP GET ${url} → ${serverNode.name}`, 'packet');
+
+  const pageContent = ws.content || '<h1>Willkommen!</h1><p>Standardseite.</p>';
+  const html = `<div style="display:flex;flex-direction:column;height:100%">
+    <div style="background:#e8f0fe;padding:6px 10px;font-size:10px;color:#4285f4;font-weight:700;border-bottom:1px solid #d2e3fc;flex-shrink:0">
+      🔒 http://${host} — ${serverNode.name} (${targetIP})
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:14px;font-family:Arial,sans-serif">${pageContent}</div>
+  </div>`;
+  view.innerHTML = html;
+  _dtBrowserState.html = html;
+}
 // ════════════════════════════════════════════════════════════
 // EMAIL
 // ════════════════════════════════════════════════════════════
@@ -1389,24 +2123,6 @@ function echoSend() {
   } else {
     out.textContent += `\nFehler: Kein Pfad zu ${targetIP}`;
   }
-}
-
-// ════════════════════════════════════════════════════════════
-// FTP
-// ════════════════════════════════════════════════════════════
-function ftpConnect() {
-  const host = document.getElementById('ftp-host').value.trim();
-  const targetNode = nodes.find(x => x.ip === host || x.name.toLowerCase() === host.toLowerCase());
-  const remote = document.getElementById('ftp-remote');
-  if (!targetNode || !targetNode.on || !targetNode.installedApps.includes('ftpserver')) {
-    remote.textContent = 'Fehler: Kein FTP-Server auf ' + host;
-    remote.style.color = 'var(--red)'; return;
-  }
-  remote.style.color = 'var(--text)';
-  remote.innerHTML = '📁 home/<br>📄 index.html<br>📄 readme.txt<br>📄 data.csv';
-  document.getElementById('ftp-status').textContent = `✓ Verbunden mit ${targetNode.name} (${targetNode.ip})`;
-  log(`FTP: Verbunden mit ${targetNode.name}`, 'success');
-  if (captureActive) addCapture('FTP', `${appWindowNode?.ip} → ${targetNode.ip} CONNECT`);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1651,7 +2367,7 @@ function clearAll() {
   nextId = 1; // Reset IDs so everything starts clean!
   draw(); updateSB(); select(null);
   document.getElementById('empty-state').style.display = 'block';
-  ipCounters = { pc: 10, laptop: 20, router: 1, switch: 0, server: 100, modem: 0 };
+  ipCounters = { pc: 10, laptop: 20, router: 1, switch: 0, hub: 0, ap: 50, server: 100, modem: 0 };
   dhcpNext = 100;
   log('Netzwerk zurückgesetzt', 'warn');
 }
@@ -1677,10 +2393,10 @@ function loadExample() {
   sw1.name = 'Switch-Büro'; sw2.name = 'Switch-Labor';
   srv.ip = '192.168.1.100'; srv.name = 'Webserver'; srv.gw = '10.0.0.1';
   srv.installedApps = ['webserver', 'dnsserver', 'dhcpserver', 'emailserver'];
-  pc1.ip = '192.168.1.10'; pc1.name = 'Büro-PC-1'; pc1.gw = '10.0.0.1'; pc1.installedApps = ['webbrowser', 'email'];
-  pc2.ip = '192.168.1.11'; pc2.name = 'Büro-PC-2'; pc2.gw = '10.0.0.1'; pc2.installedApps = ['webbrowser', 'email'];
-  lt1.ip = '192.168.2.10'; lt1.name = 'Labor-Laptop'; lt1.gw = '10.0.0.1'; lt1.installedApps = ['webbrowser', 'echoclient'];
-  pc3.ip = '192.168.2.11'; pc3.name = 'Labor-PC'; pc3.gw = '10.0.0.1'; pc3.installedApps = ['webbrowser', 'ftpclient'];
+  pc1.ip = '192.168.1.10'; pc1.name = 'Büro-PC-1'; pc1.gw = '10.0.0.1'; pc1.installedApps = ['webbrowser'];
+  pc2.ip = '192.168.1.11'; pc2.name = 'Büro-PC-2'; pc2.gw = '10.0.0.1'; pc2.installedApps = ['webbrowser'];
+  lt1.ip = '192.168.2.10'; lt1.name = 'Labor-Laptop'; lt1.gw = '10.0.0.1'; lt1.installedApps = ['webbrowser'];
+  pc3.ip = '192.168.2.11'; pc3.name = 'Labor-PC'; pc3.gw = '10.0.0.1'; pc3.installedApps = ['webbrowser'];
 
   dnsEntries['www.schule.de'] = '192.168.1.100';
   dnsEntries['mail.schule.de'] = '192.168.1.100';
@@ -1704,6 +2420,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'd' || e.key === 'D') toggleDelete();
   if (e.key === 'Delete' && selNode) removeNode(selNode);
   if (e.key === 'Escape') {
+    if (document.getElementById('dt-overlay').style.display === 'flex') { closeDesktop(); return; }
     if (document.getElementById('cmd-overlay').classList.contains('visible')) closeCMD();
     if (document.getElementById('help-panel').classList.contains('open')) showHelp();
     if (cableMode) toggleCable();
@@ -1839,3 +2556,203 @@ setInterval(() => {
   });
   document.addEventListener('mouseup', () => dragging = false);
 })();
+// ════════════════════════════════════════════════════════════
+// SUBNET CALCULATOR
+// ════════════════════════════════════════════════════════════
+function prefixFromMask(mask) {
+  try {
+    return mask.split('.').reduce((a, b) => a + parseInt(b).toString(2).split('').filter(x=>x==='1').length, 0);
+  } catch(e) { return 24; }
+}
+
+function subnetInfo(ip, prefix) {
+  try {
+    prefix = parseInt(prefix);
+    if (isNaN(prefix) || prefix < 0 || prefix > 32) return null;
+    const ipParts = ip.split('.').map(Number);
+    if (ipParts.length !== 4 || ipParts.some(p => isNaN(p) || p < 0 || p > 255)) return null;
+    const ipNum = ipParts.reduce((a, b) => (a << 8) | b, 0) >>> 0;
+    const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0;
+    const network = (ipNum & mask) >>> 0;
+    const broadcast = (network | (~mask >>> 0)) >>> 0;
+    const toIP = n => [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.');
+    const hosts = prefix >= 31 ? (prefix === 32 ? 1 : 2) : Math.pow(2, 32 - prefix) - 2;
+    const firstHost = prefix < 31 ? toIP(network + 1) : toIP(network);
+    const lastHost = prefix < 31 ? toIP(broadcast - 1) : toIP(broadcast);
+    const maskStr = toIP(mask);
+    const classes = prefix <= 8 ? 'A' : prefix <= 16 ? 'B' : prefix <= 24 ? 'C' : 'D/E';
+    return {
+      network: toIP(network),
+      broadcast: toIP(broadcast),
+      mask: maskStr,
+      cidr: `${toIP(network)}/${prefix}`,
+      firstHost, lastHost,
+      hosts: hosts.toLocaleString('de-DE'),
+      prefix,
+      ipClass: classes
+    };
+  } catch(e) { return null; }
+}
+
+function calcSubnet() {
+  const ip = document.getElementById('sn-ip').value.trim();
+  const prefix = document.getElementById('sn-prefix').value.trim();
+  const res = document.getElementById('sn-result');
+  if (!ip || !prefix) {
+    res.innerHTML = '<span style="color:var(--muted)">IP und Präfixlänge eingeben…</span>';
+    return;
+  }
+  const info = subnetInfo(ip, prefix);
+  if (!info) {
+    res.innerHTML = '<span style="color:var(--red)">⚠ Ungültige Eingabe — z.B. 192.168.1.0 / 24</span>';
+    return;
+  }
+  res.innerHTML = `
+    <div style="display:grid;gap:3px">
+      <div><span style="color:var(--muted);display:inline-block;width:130px">Netzadresse:</span> <strong style="color:var(--accent)">${info.network}</strong></div>
+      <div><span style="color:var(--muted);display:inline-block;width:130px">Subnetzmaske:</span> <strong>${info.mask}</strong></div>
+      <div><span style="color:var(--muted);display:inline-block;width:130px">Broadcast:</span> <strong style="color:var(--red)">${info.broadcast}</strong></div>
+      <div><span style="color:var(--muted);display:inline-block;width:130px">Erster Host:</span> <strong style="color:var(--green)">${info.firstHost}</strong></div>
+      <div><span style="color:var(--muted);display:inline-block;width:130px">Letzter Host:</span> <strong style="color:var(--green)">${info.lastHost}</strong></div>
+      <div><span style="color:var(--muted);display:inline-block;width:130px">Nutzbare Hosts:</span> <strong>${info.hosts}</strong></div>
+      <div><span style="color:var(--muted);display:inline-block;width:130px">CIDR:</span> <strong>${info.cidr}</strong></div>
+      <div><span style="color:var(--muted);display:inline-block;width:130px">Netzklasse:</span> <strong>Klasse ${info.ipClass}</strong></div>
+    </div>`;
+}
+
+function toggleSubnetCalc() {
+  document.getElementById('subnet-panel').classList.toggle('open');
+}
+
+// ════════════════════════════════════════════════════════════
+// GRID SNAP
+// ════════════════════════════════════════════════════════════
+let gridSnap = false;
+const GRID = 25;
+
+function toggleGridSnap() {
+  gridSnap = !gridSnap;
+  document.getElementById('btn-snap').classList.toggle('active', gridSnap);
+  notify(gridSnap ? '⊞ Gitter-Snap AN (25px)' : '⊞ Gitter-Snap AUS', 'info');
+}
+
+// Intercept node movement to snap to grid
+const _origCvMouseMove = cvMouseMove;
+window.cvMouseMove = function(e) {
+  if (dragNode && gridSnap) {
+    const area = document.getElementById('canvas-area');
+    const rect = area.getBoundingClientRect();
+    const wx = Math.round(((e.clientX - rect.left - panX) / zoom - dragOff.x) / GRID) * GRID;
+    const wy = Math.round(((e.clientY - rect.top - panY) / zoom - dragOff.y) / GRID) * GRID;
+    dragNode.x = Math.max(40, Math.min(area.clientWidth / zoom - 40, wx));
+    dragNode.y = Math.max(40, Math.min(area.clientHeight / zoom - 40, wy));
+    dragNode.el.style.left = dragNode.x + 'px';
+    dragNode.el.style.top = dragNode.y + 'px';
+    draw(); return;
+  }
+  _origCvMouseMove(e);
+};
+
+// ════════════════════════════════════════════════════════════
+// EXPORT AS PNG
+// ════════════════════════════════════════════════════════════
+function exportPNG() {
+  // Render cables on canvas (already there), then merge with device layer screenshot
+  const area = document.getElementById('canvas-area');
+  const cvs2 = document.createElement('canvas');
+  cvs2.width = area.clientWidth;
+  cvs2.height = area.clientHeight;
+  const cx2 = cvs2.getContext('2d');
+
+  // Fill background
+  const bg = getComputedStyle(document.body).getPropertyValue('--bg').trim();
+  cx2.fillStyle = bg || '#E9E5DD';
+  cx2.fillRect(0, 0, cvs2.width, cvs2.height);
+
+  // Draw the main canvas (cables) onto cvs2
+  cx2.drawImage(cvs, 0, 0);
+
+  // Draw device nodes as rectangles with labels
+  nodes.forEach(n => {
+    const ex = n.x * zoom + panX;
+    const ey = n.y * zoom + panY;
+    if (ex < -60 || ex > cvs2.width + 60 || ey < -60 || ey > cvs2.height + 60) return;
+
+    cx2.save();
+    // Node bg circle
+    cx2.beginPath();
+    cx2.arc(ex, ey, 26 * zoom, 0, Math.PI * 2);
+    cx2.fillStyle = TYPES[n.type]?.bgColor || '#f0f0f0';
+    cx2.strokeStyle = TYPES[n.type]?.color || '#888';
+    cx2.lineWidth = 2 * zoom;
+    cx2.fill(); cx2.stroke();
+
+    // Device name
+    cx2.fillStyle = '#333';
+    cx2.font = `${Math.max(9, 11 * zoom)}px Nunito,sans-serif`;
+    cx2.textAlign = 'center';
+    cx2.fillText(n.name, ex, ey + 38 * zoom);
+    if (n.ip) {
+      cx2.fillStyle = '#666';
+      cx2.font = `${Math.max(7, 9 * zoom)}px monospace`;
+      cx2.fillText(n.ip, ex, ey + 50 * zoom);
+    }
+    cx2.restore();
+  });
+
+  // Save
+  cvs2.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'netzwerk.png';
+    a.click();
+    notify('📷 Netzwerk als PNG exportiert', 'success');
+    log('Netzwerk als netzwerk.png gespeichert', 'ok');
+  }, 'image/png');
+}
+
+// ════════════════════════════════════════════════════════════
+// HUB BROADCAST VISUALIZATION
+// ════════════════════════════════════════════════════════════
+function animateHubBroadcast(hub, fromNode, color) {
+  const hubNeighbors = neighbors(hub).filter(n => n.on && n.id !== fromNode.id);
+  hubNeighbors.forEach((nb, i) => {
+    setTimeout(() => {
+      const path = [hub, nb];
+      animatePkt(path, color || '#e91e63');
+    }, i * 80);
+  });
+  if (captureActive) {
+    addCapture('ETH', `Hub ${hub.name} Broadcast → ${hubNeighbors.length} Ports`);
+  }
+}
+
+// Modified findPath to handle hub broadcast logging
+const _origFindPath = findPath;
+window.findPathWithHubLog = function(src, dstIP) {
+  const path = _origFindPath(src, dstIP);
+  if (path) {
+    const hasHub = path.some(n => n.type === 'hub');
+    if (hasHub && captureActive) {
+      addCapture('ETH', `Paket via Hub (Broadcast-Domäne!): ${src.ip} → ${dstIP}`);
+    }
+  }
+  return path;
+};
+
+// ════════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS — add G for grid snap, N for subnet calc
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true') return;
+  if (e.key === 'g' || e.key === 'G') toggleGridSnap();
+  if (e.key === 'n' || e.key === 'N') toggleSubnetCalc();
+}, true);
+
+// WiFi animation loop for AP devices
+function apAnimLoop() {
+  if (nodes.some(n => n.type === 'ap' && n.on)) draw();
+  requestAnimationFrame(apAnimLoop);
+}
+// Start AP animation after short delay to avoid conflicts
+setTimeout(apAnimLoop, 2000);
