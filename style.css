@@ -660,6 +660,7 @@ body {
   position: absolute;
   transform-origin: 0 0;
   will-change: transform;
+  z-index: 2;
 }
 
 #cvs {
@@ -667,6 +668,7 @@ body {
   top: 0;
   left: 0;
   pointer-events: none;
+  z-index: 1;
 }
 
 #device-layer {
