@@ -51,9 +51,6 @@ const TYPES = {
   modem:  { prefix: 'Modem',  ip: '10.0.0.',    mask: '255.255.255.0', gw: '',            color: '#1565c0', bgColor: '#e3f2fd', hasIP: true,  terminal: false, defaultApps: [] },
 };
 
-// Alias für Kompatibilität mit älteren Versionen
-const NODE_DEFS = TYPES;
-
 // FILIUS-Core Apps
 const APPS = {
   pc:     ['webbrowser'],
@@ -81,10 +78,15 @@ function applyZoom() {
   const zp   = document.getElementById('zoom-pan');
   if (!zp) return;
   const w = area.clientWidth, h = area.clientHeight;
-  zp.style.width  = w + 'px';
-  zp.style.height = h + 'px';
+  // Canvas: volle Größe, kein CSS-Transform — Zoom nur via cx.scale() in draw()
+  cvs.width  = w;
+  cvs.height = h;
+  cvs.style.width  = w + 'px';
+  cvs.style.height = h + 'px';
+  // zoom-pan: nur für HTML-Nodes (dnodes), CSS-Transform zoomt sie
+  zp.style.width     = w + 'px';
+  zp.style.height    = h + 'px';
   zp.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
-  cvs.width = w; cvs.height = h;
 }
 
 function resize() { applyZoom(); draw(); }
@@ -1141,8 +1143,11 @@ function animatePkt(path, color, onDone) {
       if (seg >= path.length - 1) { pkt.remove(); onDone && onDone(); return; }
     }
     const cur_a = path[seg], cur_b = path[seg + 1];
-    pkt.style.left = (cur_a.x + (cur_b.x - cur_a.x) * t) + 'px';
-    pkt.style.top  = (cur_a.y + (cur_b.y - cur_a.y) * t) + 'px';
+    // Weltkoordinaten → Screenkoordinaten (panX/panY/zoom berücksichtigen)
+    const wx = cur_a.x + (cur_b.x - cur_a.x) * t;
+    const wy = cur_a.y + (cur_b.y - cur_a.y) * t;
+    pkt.style.left = (wx * zoom + panX) + 'px';
+    pkt.style.top  = (wy * zoom + panY) + 'px';
     draw();
     requestAnimationFrame(step);
   }
@@ -2011,119 +2016,275 @@ function showHelp() { document.getElementById('help-panel').classList.toggle('op
 function loadExample() {
   clearAll();
   const area = document.getElementById('canvas-area');
-  const W = area.clientWidth  || 900;
-  const H = area.clientHeight || 600;
-  const mx = W / 2, my = H / 2;
+  const W = area.clientWidth  || 1200;
+  const H = area.clientHeight || 700;
 
-  // ── Geräte platzieren ───────────────────────────────────
-  const router = addNode('router', mx,          my - Math.round(H * 0.28));
-  const sw     = addNode('switch', mx - 30,     my - Math.round(H * 0.05));
-  const srv    = addNode('server', mx + Math.round(W * 0.22),  my - Math.round(H * 0.05));
-  const pc1    = addNode('pc',     mx - Math.round(W * 0.22),  my + Math.round(H * 0.22));
-  const pc2    = addNode('pc',     mx - Math.round(W * 0.04),  my + Math.round(H * 0.22));
-  const lt1    = addNode('laptop', mx + Math.round(W * 0.14),  my + Math.round(H * 0.22));
+  // ════════════════════════════════════════════════════════
+  // REALSCHULE HELMBRECHTS — Schulnetzwerk
+  //
+  // Topologie:
+  //   Internet-Modem
+  //       │
+  //   Schul-Router (192.168.0.1)
+  //       │
+  //   Kern-Switch (Verteiler)
+  //    ┌──┼──────────────┐
+  //    │  │              │
+  //  SW-  SW-           SW-
+  //  Lehrer  Raum101    Raum102
+  //    │       │              │
+  //  Lehrer-  3x Schüler-PC  3x Schüler-PC
+  //  PC + Laptop + Server    + WLAN-AP
+  // ════════════════════════════════════════════════════════
 
-  // ── Router ──────────────────────────────────────────────
-  router.name = 'Router';
-  router.ip   = '192.168.1.1';
+  // ── INTERNET-EBENE (oben mittig) ─────────────────────────
+  const modem  = addNode('modem',  W * 0.50, H * 0.05);
+
+  // ── KERN-ROUTER ──────────────────────────────────────────
+  const router = addNode('router', W * 0.50, H * 0.18);
+
+  // ── SERVER-RACK (oben rechts) ────────────────────────────
+  const srv    = addNode('server', W * 0.82, H * 0.18);
+
+  // ── KERN-SWITCH ──────────────────────────────────────────
+  const swKern = addNode('switch', W * 0.50, H * 0.32);
+
+  // ── LEHRERZIMMER (links) ─────────────────────────────────
+  const swLehrer = addNode('switch', W * 0.16, H * 0.52);
+  const pcLehrer = addNode('pc',     W * 0.05, H * 0.70);
+  const ltLehrer = addNode('laptop', W * 0.16, H * 0.70);
+  const apLehrer = addNode('ap',     W * 0.27, H * 0.70);
+
+  // ── COMPUTERRAUM 101 (mitte) ─────────────────────────────
+  const sw101  = addNode('switch', W * 0.50, H * 0.52);
+  const pc101a = addNode('pc',     W * 0.38, H * 0.70);
+  const pc101b = addNode('pc',     W * 0.50, H * 0.70);
+  const pc101c = addNode('pc',     W * 0.62, H * 0.70);
+
+  // ── COMPUTERRAUM 102 (rechts) ────────────────────────────
+  const sw102  = addNode('switch', W * 0.82, H * 0.52);
+  const pc102a = addNode('pc',     W * 0.72, H * 0.70);
+  const pc102b = addNode('pc',     W * 0.82, H * 0.70);
+  const ap102  = addNode('ap',     W * 0.92, H * 0.70);
+
+  // ════════════════════════════════════════════════════════
+  // KONFIGURATION
+  // ════════════════════════════════════════════════════════
+
+  // Modem / Internet-Gateway
+  modem.name = 'Internet (Modem)';
+  modem.ip   = '10.0.0.1';
+  modem.mask = '255.255.255.0';
+
+  // Schul-Router
+  router.name = 'Schul-Router';
+  router.ip   = '192.168.0.1';
   router.mask = '255.255.255.0';
+  router.gw   = '10.0.0.1';
 
-  // ── Server: Webserver + DNS + DHCP ──────────────────────
+  // Schul-Server (DNS + DHCP + Webserver)
   srv.name = 'Schul-Server';
-  srv.ip   = '192.168.1.100';
+  srv.ip   = '192.168.0.10';
   srv.mask = '255.255.255.0';
-  srv.gw   = '192.168.1.1';
+  srv.gw   = '192.168.0.1';
+  srv.dns  = '192.168.0.10';
   srv.installedApps = ['webserver', 'dnsserver', 'dhcpserver'];
 
-  // Webseite vorbelegen
+  // Kern-Switch
+  swKern.name = 'Kern-Switch';
+
+  // ── Lehrerzimmer ──────────────────────────────────────
+  swLehrer.name = 'SW-Lehrerzimmer';
+
+  pcLehrer.name = 'Lehrer-PC';
+  pcLehrer.ip   = '192.168.0.20';
+  pcLehrer.mask = '255.255.255.0';
+  pcLehrer.gw   = '192.168.0.1';
+  pcLehrer.dns  = '192.168.0.10';
+  pcLehrer.installedApps = ['webbrowser'];
+
+  ltLehrer.name = 'Lehrer-Laptop';
+  ltLehrer.ip   = '192.168.0.21';
+  ltLehrer.mask = '255.255.255.0';
+  ltLehrer.gw   = '192.168.0.1';
+  ltLehrer.dns  = '192.168.0.10';
+  ltLehrer.installedApps = ['webbrowser'];
+
+  apLehrer.name = 'WLAN-Lehrerzimmer';
+  apLehrer.ip   = '192.168.0.22';
+  apLehrer.mask = '255.255.255.0';
+  apLehrer.gw   = '192.168.0.1';
+
+  // ── Computerraum 101 ──────────────────────────────────
+  sw101.name = 'SW-Raum101';
+
+  pc101a.name = 'R101-PC-01';
+  pc101a.ip   = '192.168.0.101';
+  pc101a.mask = '255.255.255.0';
+  pc101a.gw   = '192.168.0.1';
+  pc101a.dns  = '192.168.0.10';
+  pc101a.installedApps = ['webbrowser'];
+
+  pc101b.name = 'R101-PC-02';
+  pc101b.ip   = '192.168.0.102';
+  pc101b.mask = '255.255.255.0';
+  pc101b.gw   = '192.168.0.1';
+  pc101b.dns  = '192.168.0.10';
+  pc101b.installedApps = ['webbrowser'];
+
+  pc101c.name = 'R101-PC-03';
+  pc101c.ip   = '192.168.0.103';
+  pc101c.mask = '255.255.255.0';
+  pc101c.gw   = '192.168.0.1';
+  pc101c.dns  = '192.168.0.10';
+  pc101c.installedApps = ['webbrowser'];
+
+  // ── Computerraum 102 ──────────────────────────────────
+  sw102.name = 'SW-Raum102';
+
+  pc102a.name = 'R102-PC-01';
+  pc102a.ip   = '192.168.0.111';
+  pc102a.mask = '255.255.255.0';
+  pc102a.gw   = '192.168.0.1';
+  pc102a.dns  = '192.168.0.10';
+  pc102a.installedApps = ['webbrowser'];
+
+  pc102b.name = 'R102-PC-02';
+  pc102b.ip   = '192.168.0.112';
+  pc102b.mask = '255.255.255.0';
+  pc102b.gw   = '192.168.0.1';
+  pc102b.dns  = '192.168.0.10';
+  pc102b.installedApps = ['webbrowser'];
+
+  ap102.name = 'WLAN-Raum102';
+  ap102.ip   = '192.168.0.113';
+  ap102.mask = '255.255.255.0';
+  ap102.gw   = '192.168.0.1';
+
+  // ════════════════════════════════════════════════════════
+  // WEBSERVER-INHALT
+  // ════════════════════════════════════════════════════════
   wsNodes[srv.id] = {
     running: true,
-    content: `<h2 style="color:#4285f4">🏫 Willkommen im Schulnetz!</h2>
-<p>Diese Seite wird vom <b>Schul-Server (192.168.1.100)</b> ausgeliefert.</p>
-<hr>
-<p>💡 <b>Teste folgendes im Terminal eines PCs:</b></p>
-<ul>
-  <li><code>ping 192.168.1.100</code> — ICMP-Animation</li>
-  <li><code>nslookup www.schule.de</code> — DNS-Animation</li>
-  <li><code>ping www.schule.de</code> — DNS + ICMP kombiniert</li>
-</ul>
-<p>🌐 Öffne den <b>Webbrowser</b> und gib <code>www.schule.de</code> ein!</p>`
+    content: `
+<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:20px">
+  <div style="background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:24px 28px;border-radius:10px;margin-bottom:20px">
+    <div style="font-size:28px;margin-bottom:6px">🏫 Realschule Helmbrechts</div>
+    <div style="font-size:14px;opacity:.85">Schulisches Intranet · Schul-Server 192.168.0.10</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+    <div style="background:#e8f5e9;border-left:4px solid #43a047;padding:14px;border-radius:6px">
+      <div style="font-weight:700;color:#2e7d32;margin-bottom:6px">📅 Stundenplan</div>
+      <div style="font-size:12px;color:#555">Mo–Fr: 8:00 – 13:15 Uhr<br>Mi: 8:00 – 11:30 Uhr</div>
+    </div>
+    <div style="background:#e3f2fd;border-left:4px solid #1e88e5;padding:14px;border-radius:6px">
+      <div style="font-weight:700;color:#1565c0;margin-bottom:6px">📢 Aktuelles</div>
+      <div style="font-size:12px;color:#555">IT-Projekt: Netzwerksimulation<br>Projekt von NetSim</div>
+    </div>
+    <div style="background:#fff3e0;border-left:4px solid #fb8c00;padding:14px;border-radius:6px">
+      <div style="font-weight:700;color:#e65100;margin-bottom:6px">🖥️ IT-Raum 101</div>
+      <div style="font-size:12px;color:#555">3 PCs · Switch · Subnetz<br>192.168.0.101 – .103</div>
+    </div>
+    <div style="background:#fce4ec;border-left:4px solid #e91e63;padding:14px;border-radius:6px">
+      <div style="font-weight:700;color:#880e4f;margin-bottom:6px">📡 IT-Raum 102</div>
+      <div style="font-size:12px;color:#555">2 PCs · WLAN-AP · Switch<br>192.168.0.111 – .113</div>
+    </div>
+  </div>
+  <div style="background:#f5f5f5;border-radius:8px;padding:16px;font-size:12px">
+    <div style="font-weight:700;margin-bottom:10px;color:#333">💡 Terminal-Befehle zum Ausprobieren:</div>
+    <div style="font-family:monospace;background:#1e1e1e;color:#4ade80;padding:12px;border-radius:6px;line-height:2">
+      ping 192.168.0.10 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ Server anpingen<br>
+      ping 192.168.0.101 &nbsp;&nbsp;&nbsp;&nbsp;→ Raum101-PC anpingen<br>
+      traceroute 192.168.0.112 → Route durch den Switch<br>
+      nslookup schule.intern &nbsp;→ DNS-Auflösung<br>
+      nslookup intranet.local → Intranet-Hostname<br>
+      ipconfig &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ Eigene Netzwerkdaten
+    </div>
+  </div>
+</div>`
   };
 
-  // DNS-Einträge vorbefüllen + DNS-Server starten
-  dnsEntries['www.schule.de']  = '192.168.1.100';
-  dnsEntries['server.lokal']   = '192.168.1.100';
+  // ════════════════════════════════════════════════════════
+  // DNS-EINTRÄGE
+  // ════════════════════════════════════════════════════════
+  dnsEntries['schule.intern']   = '192.168.0.10';
+  dnsEntries['intranet.local']  = '192.168.0.10';
+  dnsEntries['server.lokal']    = '192.168.0.10';
+  dnsEntries['router.lokal']    = '192.168.0.1';
+  dnsEntries['lehrer-pc.lokal'] = '192.168.0.20';
   dnsRunning    = true;
   dnsServerNode = srv;
 
-  // ── PCs: feste IPs + Webbrowser ─────────────────────────
-  pc1.name = 'Büro-PC';
-  pc1.ip   = '192.168.1.10';
-  pc1.mask = '255.255.255.0';
-  pc1.gw   = '192.168.1.1';
-  pc1.dns  = '192.168.1.100';
-  pc1.installedApps = ['webbrowser'];
-
-  pc2.name = 'DHCP-Client';
-  pc2.mask = '255.255.255.0';
-  pc2.gw   = '192.168.1.1';
-  pc2.dns  = '192.168.1.100';
-  pc2.dhcpEnabled = true;
-  pc2.installedApps = ['webbrowser'];
-
-  lt1.name = 'Laptop';
-  lt1.ip   = '192.168.1.30';
-  lt1.mask = '255.255.255.0';
-  lt1.gw   = '192.168.1.1';
-  lt1.dns  = '192.168.1.100';
-  lt1.installedApps = ['webbrowser'];
-
-  // Switch (kein IP nötig)
-  sw.name = 'Switch';
-
-  // ── DHCP-Server starten + IP an pc2 vergeben ────────────
+  // DHCP aktiv
   dhcpRunning    = true;
   dhcpServerNode = srv;
   dhcpNext       = 50;
-  // PC2 bekommt sofort eine IP per DHCP (mit Animation nach kurzem Delay)
-  pc2.ip   = '192.168.1.50';
-  pc2.mask = '255.255.255.0';
 
-  // ── Alle Nodes rendern ───────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  // ALLE NODES RENDERN
+  // ════════════════════════════════════════════════════════
   nodes.forEach(n => refreshNode(n));
 
-  // ── Kabel ziehen ────────────────────────────────────────
-  addCable(router, sw);
-  addCable(sw, srv);
-  addCable(sw, pc1);
-  addCable(sw, pc2);
-  addCable(sw, lt1);
+  // ════════════════════════════════════════════════════════
+  // KABELVERBINDUNGEN
+  // ════════════════════════════════════════════════════════
+  // Internet → Router
+  addCable(modem,  router);
+  // Router → Kern-Switch
+  addCable(router, swKern);
+  // Server → Kern-Switch
+  addCable(srv,    swKern);
+  // Kern-Switch → Bereichs-Switches
+  addCable(swKern, swLehrer);
+  addCable(swKern, sw101);
+  addCable(swKern, sw102);
+  // Lehrerzimmer
+  addCable(swLehrer, pcLehrer);
+  addCable(swLehrer, ltLehrer);
+  addCable(swLehrer, apLehrer);
+  // Raum 101
+  addCable(sw101, pc101a);
+  addCable(sw101, pc101b);
+  addCable(sw101, pc101c);
+  // Raum 102
+  addCable(sw102, pc102a);
+  addCable(sw102, pc102b);
+  addCable(sw102, ap102);
 
-  // ── Simulationsmodus aktivieren ─────────────────────────
   setMode('sim');
 
-  // ── Anleitungs-Log ──────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  // LOG-AUSGABE
+  // ════════════════════════════════════════════════════════
   setTimeout(() => {
-    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
-    log('📦 Beispielnetzwerk geladen & bereit!', 'success');
-    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
-    log('✅ DNS-Server läuft auf Schul-Server (192.168.1.100)', 'ok');
-    log('✅ DHCP-Server läuft — DHCP-Client hat 192.168.1.50 erhalten', 'ok');
-    log('✅ Webserver läuft auf http://www.schule.de', 'ok');
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+    log('🏫 Schulnetzwerk geladen — Realschule Helmbrechts', 'success');
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
     log('', 'sys');
-    log('💡 Doppelklick auf "Büro-PC" → Terminal öffnet sich', 'info');
-    log('   ping 192.168.1.100       → ICMP-Paketanimation', 'sys');
-    log('   nslookup www.schule.de   → DNS-Paketanimation', 'sys');
-    log('   ping www.schule.de       → DNS + ICMP kombiniert', 'sys');
+    log('📌 TOPOLOGIE:', 'info');
+    log('  Internet (10.0.0.1) → Schul-Router (192.168.0.1)', 'sys');
+    log('  Schul-Router → Kern-Switch → 3 Bereichs-Switches', 'sys');
+    log('  Lehrerzimmer: PC + Laptop + WLAN-AP', 'sys');
+    log('  Raum 101: 3x Schüler-PC', 'sys');
+    log('  Raum 102: 2x Schüler-PC + WLAN-AP', 'sys');
     log('', 'sys');
-    log('🌐 Desktop → Webbrowser → "www.schule.de" → DNS + HTTP animiert', 'info');
-    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+    log('✅ DNS-Server läuft (schule.intern, intranet.local)', 'ok');
+    log('✅ DHCP-Server aktiv auf Schul-Server', 'ok');
+    log('✅ Webserver: http://schule.intern', 'ok');
+    log('', 'sys');
+    log('💡 AUFGABEN FÜR SCHÜLER:', 'info');
+    log('  1. Doppelklick auf R101-PC-01 → Terminal öffnen', 'sys');
+    log('  2. ping 192.168.0.112         → Raum102-PC anpingen', 'sys');
+    log('  3. traceroute 192.168.0.10    → Route zum Server', 'sys');
+    log('  4. nslookup schule.intern     → DNS-Animation', 'sys');
+    log('  5. Browser → schule.intern    → Intranet öffnen', 'sys');
+    log('  6. ping 10.0.0.1              → Internetverbindung testen', 'sys');
+    log('', 'sys');
+    log('📡 Subnetz: 192.168.0.0/24  ·  Gateway: 192.168.0.1', 'info');
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
   }, 100);
 
-  // DHCP-Animation für pc2 nach kurzem Delay sichtbar machen
-  setTimeout(() => animateDHCP(pc2, null), 800);
-
-  notify('✓ Beispiel geladen — Doppelklick auf einen PC um zu starten!', 'success');
+  notify('🏫 Schulnetzwerk geladen — Doppelklick auf einen PC zum Starten!', 'success');
 }
 
 // ════════════════════════════════════════════════════════════
