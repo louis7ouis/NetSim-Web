@@ -30,7 +30,7 @@
         </div>
         <div>
           <div class="logo-text">NetSim</div>
-          <div class="logo-sub">Netzwerk Simulator V0.7</div>
+          <div class="logo-sub">Netzwerk Simulator V1.2</div>
         </div>
       </div>
 
@@ -59,6 +59,15 @@
         <div class="tb-btn" onclick="clearAll()" title="Alles zurücksetzen">
           🔄 Reset
         </div>
+        <div class="tb-btn" onclick="exportPNG()" title="Netzwerk als PNG exportieren">
+          📷 Export
+        </div>
+        <div class="tb-btn" onclick="toggleGridSnap()" id="btn-snap" title="Gitter-Snap ein/ausschalten (G)">
+          ⊞ Snap
+        </div>
+        <div class="tb-btn" onclick="toggleSubnetCalc()" title="Subnetz-Rechner öffnen">
+          🧮 Subnetz
+        </div>
         <div class="tb-btn" onclick="showHelp()" title="Hilfe">
           ❓ Hilfe
         </div>
@@ -79,6 +88,20 @@
           </svg>Simulation
         </div>
       </div>
+
+      <!-- Dark Mode Toggle -->
+      <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Hell / Dunkel wechseln">
+        <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/>
+          <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+      </button>
     </div>
 
     <div id="main">
@@ -209,6 +232,43 @@
               </svg>
             </div>
             <div class="pi-name">Server</div>
+          </div>
+
+          <div class="pal-item" draggable="true" ondragstart="palDrag(event,'hub')" title="Hub (sendet an ALLE Ports — Broadcast)">
+            <div class="pi-icon" style="background:#fce4ec">
+              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="12" width="36" height="18" rx="3" fill="#e91e63"/>
+                <rect x="2" y="12" width="36" height="9" rx="3" fill="#f06292"/>
+                <rect x="4" y="14" width="32" height="5" rx="1.5" fill="#f8bbd9"/>
+                <circle cx="8" cy="25" r="1.5" fill="#880e4f"/>
+                <circle cx="13" cy="25" r="1.5" fill="#880e4f"/>
+                <circle cx="18" cy="25" r="1.5" fill="#880e4f"/>
+                <circle cx="23" cy="25" r="1.5" fill="#880e4f"/>
+                <circle cx="28" cy="25" r="1.5" fill="#880e4f"/>
+                <circle cx="33" cy="25" r="1.5" fill="#880e4f"/>
+                <text x="20" y="19.5" text-anchor="middle" font-size="5" fill="#fff" font-family="Arial" font-weight="bold">HUB</text>
+              </svg>
+            </div>
+            <div class="pi-name">Hub</div>
+          </div>
+
+          <div class="pal-item" draggable="true" ondragstart="palDrag(event,'ap')" title="WLAN Access Point (Drahtlos)">
+            <div class="pi-icon" style="background:#e0f2f1">
+              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="22" width="32" height="12" rx="3" fill="#00897b"/>
+                <rect x="4" y="22" width="32" height="6" rx="3" fill="#26a69a"/>
+                <circle cx="10" cy="30" r="2" fill="#004d40"/>
+                <circle cx="17" cy="30" r="2" fill="#4caf50"/>
+                <circle cx="24" cy="30" r="2" fill="#4caf50"/>
+                <circle cx="31" cy="30" r="2" fill="#4caf50"/>
+                <path d="M20 20 Q20 17 20 15" stroke="#00897b" stroke-width="2" fill="none"/>
+                <path d="M13 17 Q20 11 27 17" stroke="#00897b" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+                <path d="M10 14 Q20 6 30 14" stroke="#26a69a" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".7"/>
+                <path d="M7 11 Q20 1 33 11" stroke="#4db6ac" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".4"/>
+                <circle cx="20" cy="15" r="2" fill="#00897b"/>
+              </svg>
+            </div>
+            <div class="pi-name">WLAN-AP</div>
           </div>
 
           <div class="pal-item" draggable="true" ondragstart="palDrag(event,'modem')" title="Modem / DSL-Router">
@@ -356,8 +416,8 @@
               <button class="rp-btn success" onclick="togglePower()">
                 ⚡ <span id="pwr-label">Ausschalten</span>
               </button>
-              <button class="rp-btn primary" onclick="openTerminal()">
-                🖥️ Terminal / Desktop öffnen
+              <button class="rp-btn primary" onclick="if(selNode){if(mode!=='sim')setMode('sim');openDesktop(selNode);}">
+                🖥️ Desktop öffnen
               </button>
               <button class="rp-btn danger" onclick="deleteSelected()">
                 🗑️ Gerät entfernen
@@ -405,14 +465,14 @@
         <span><span class="sb-key">D</span> Löschen</span>
         <span><span class="sb-key">Mausrad</span> Zoomen</span>
         <span><span class="sb-key">Leertaste</span> Modus</span>
-        <span>NetSim v3.0 — Schulversion</span>
+        <span>NetSim V1.2 — Schulversion</span>
       </div>
     </div>
   </div><!-- app -->
   <div id="zoom-indicator">100%</div>
 
   <!-- ══════ CMD/TERMINAL WINDOW ══════ -->
-  <div id="cmd-overlay" onclick="if(event.target===this)closeCMD()" style="display:flex">
+  <div id="cmd-overlay" onclick="if(event.target===this)closeCMD()" style="display:none">
     <div id="cmd-window">
       <div class="cmd-titlebar" id="cmd-titlebar">
         <div class="cmd-dots">
@@ -432,8 +492,7 @@
       </div>
       <div class="cmd-footer">
         <span>Befehle:</span>
-        <kbd>ping &lt;IP&gt;</kbd><kbd>traceroute &lt;IP&gt;</kbd><kbd>ipconfig</kbd><kbd>arp</kbd><kbd>nslookup
-          &lt;Name&gt;</kbd><kbd>cls</kbd><kbd>help</kbd>
+        <kbd>ping &lt;IP&gt;</kbd><kbd>traceroute &lt;IP&gt;</kbd><kbd>ipconfig</kbd><kbd>arp</kbd><kbd>netstat</kbd><kbd>route</kbd><kbd>nslookup &lt;Name&gt;</kbd><kbd>ls</kbd><kbd>cls</kbd><kbd>help</kbd>
       </div>
     </div>
   </div>
@@ -543,7 +602,7 @@
       <span class="aw-title-text">🖥 Webserver</span>
     </div>
     <div class="aw-body">
-      <div class="rp-label">index.html — Texteditor</div>
+      <div class="rp-label">index.html — Inhalt</div>
       <textarea id="webserver-content"
         style="width:100%;height:180px;background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);outline:none;resize:vertical">&lt;html&gt;
 &lt;head&gt;&lt;title&gt;Meine Webseite&lt;/title&gt;&lt;/head&gt;
@@ -665,38 +724,142 @@
     </div>
   </div>
 
-  <!-- FTP-Client -->
-  <div class="app-window" id="win-ftp" style="width:440px;height:320px;top:95px;left:210px">
-    <div class="aw-title" id="drag-ftp">
+  <!-- Firewall -->
+  <div class="app-window" id="win-firewall" style="width:480px;height:380px;top:90px;left:200px">
+    <div class="aw-title" id="drag-firewall">
       <div class="aw-dots">
-        <div class="aw-dot r" onclick="closeApp('ftp')"></div>
+        <div class="aw-dot r" onclick="closeApp('firewall')"></div>
         <div class="aw-dot y"></div>
         <div class="aw-dot g"></div>
       </div>
-      <span class="aw-title-text">📁 Datei-Explorer / FTP</span>
+      <span class="aw-title-text">🛡️ Firewall</span>
     </div>
     <div class="aw-body">
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <input class="aw-input" id="ftp-host" placeholder="Server-IP" style="flex:1" />
-        <button class="aw-btn ok" onclick="ftpConnect()">Verbinden</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="rp-label" style="margin:0">Firewall-Status</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:700">
+          <input type="checkbox" id="fw-enabled" onchange="fwToggle()" checked
+            style="width:16px;height:16px;cursor:pointer;accent-color:#22c55e" />
+          <span id="fw-status-label" style="color:#22c55e">Aktiv</span>
+        </label>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div>
-          <div class="rp-label">Lokal</div>
-          <div id="ftp-local"
-            style="background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:8px;min-height:100px;font-size:11px;font-family:'JetBrains Mono',monospace">
-            📄 index.html<br>📄 readme.txt
+      <div class="rp-label">Regeln (eingehend)</div>
+      <div id="fw-rules-list" style="font-size:12px;margin-bottom:10px;max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select class="aw-input" id="fw-action" style="width:90px;padding:5px 8px">
+          <option value="block">Blockieren</option>
+          <option value="allow">Erlauben</option>
+        </select>
+        <input class="aw-input" id="fw-port" placeholder="Port (z.B. 80)" style="width:110px" />
+        <input class="aw-input" id="fw-src" placeholder="Quelle (IP/*)" style="width:120px" />
+        <button class="aw-btn ok" onclick="fwAddRule()" style="padding:5px 12px">+ Regel</button>
+      </div>
+      <div id="fw-log" class="aw-output" style="margin-top:10px;height:60px;font-size:11px">Firewall bereit.</div>
+    </div>
+  </div>
+
+  <!-- FTP-Client -->
+
+
+
+  <!-- ══════ DESKTOP OVERLAY ══════ -->
+  <div id="dt-overlay">
+    <div id="dt-win">
+
+      <!-- Titlebar -->
+      <div id="dt-titlebar">
+        <div class="dt-dots">
+          <span class="dt-dot dt-r" onclick="closeDesktop()" title="Schließen"></span>
+          <span class="dt-dot dt-y" title="Minimieren"></span>
+          <span class="dt-dot dt-g" title="Vollbild"></span>
+        </div>
+        <div class="dt-title-info">
+          <span class="dt-devname" id="dt-devname">PC-1</span>
+          <span class="dt-ipbadge" id="dt-ipbadge">192.168.1.1</span>
+          <span class="dt-typebadge" id="dt-typebadge">PC</span>
+        </div>
+        <div style="flex:1"></div>
+        <span class="dt-powerled" id="dt-powerled"></span>
+      </div>
+
+      <!-- Body: Apps-Liste | Rechts Terminal oder App -->
+      <div id="dt-body">
+
+        <!-- Linke Spalte: App-Icons -->
+        <div id="dt-apps-col">
+          <div class="dt-col-hdr">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="0.5" y="0.5" width="4" height="4" rx="0.8"/><rect x="7.5" y="0.5" width="4" height="4" rx="0.8"/>
+              <rect x="0.5" y="7.5" width="4" height="4" rx="0.8"/><rect x="7.5" y="7.5" width="4" height="4" rx="0.8"/>
+            </svg>
+            Apps
+          </div>
+          <div id="dt-apps-grid"></div>
+          <div id="dt-no-apps" style="display:none">
+            <div class="dt-noapp-icon">📭</div>
+            <div class="dt-noapp-t">Keine Apps installiert</div>
+            <div class="dt-noapp-s">Gerät → Apps → installieren</div>
+          </div>
+
+          <!-- Terminal-Shortcut unter den App-Icons -->
+          <div id="dt-term-shortcut" onclick="_dtShowTerminal()" title="Terminal öffnen">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;opacity:.7">
+              <polyline points="2 10 6 6 2 2"/><line x1="8" y1="12" x2="13" y2="12"/>
+            </svg>
+            <span>Terminal</span>
           </div>
         </div>
-        <div>
-          <div class="rp-label">Remote</div>
-          <div id="ftp-remote"
-            style="background:var(--panel);border:1.5px solid var(--border);border-radius:7px;padding:8px;min-height:100px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted)">
-            Nicht verbunden
+
+        <!-- Trennlinie -->
+        <div id="dt-divider"></div>
+
+        <!-- Rechte Spalte -->
+        <div id="dt-right-col">
+
+          <!-- Rechts-Header -->
+          <div id="dt-right-hdr">
+            <svg class="dt-hdr-icon" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.9">
+              <polyline points="2 10 6 6 2 2"/><line x1="8" y1="12" x2="13" y2="12"/>
+            </svg>
+            <span id="dt-right-label">Terminal</span>
+
+            <!-- Zurück-Button (nur wenn App geöffnet) -->
+            <button id="dt-back-btn" class="dt-back-btn" onclick="dtBack()" style="display:none" title="Zurück zum Terminal">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="9 2 4 7 9 12"/>
+              </svg>
+              Zurück
+            </button>
+
+            <button id="dt-cls-btn" class="dt-cls-btn" onclick="dtClear()" title="Terminal leeren">cls</button>
           </div>
+
+          <!-- Terminal -->
+          <div id="dt-term" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+            <div id="dt-output"></div>
+            <div id="dt-input-row">
+              <span class="dt-prompt" id="dt-prompt">PC&#x3e;</span>
+              <input id="dt-input" type="text" autocomplete="off" spellcheck="false"
+                placeholder="Befehl eingeben…" onkeydown="dtKey(event)" />
+            </div>
+            <div id="dt-hints">
+              <kbd onclick="dtFill('ping ')">ping</kbd>
+              <kbd onclick="dtFill('traceroute ')">traceroute</kbd>
+              <kbd onclick="dtFill('ipconfig')">ipconfig</kbd>
+              <kbd onclick="dtFill('arp')">arp</kbd>
+              <kbd onclick="dtFill('nslookup ')">nslookup</kbd>
+              <kbd onclick="dtFill('netstat')">netstat</kbd>
+              <kbd onclick="dtFill('route')">route</kbd>
+              <kbd onclick="dtFill('ls')">ls</kbd>
+              <kbd onclick="dtFill('help')">help</kbd>
+            </div>
+          </div>
+
+          <!-- App-Panel (leer, wird per JS befüllt) -->
+          <div id="dt-app-panel" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0"></div>
+
         </div>
       </div>
-      <div id="ftp-status" style="margin-top:8px;font-size:11px;color:var(--dim)"></div>
     </div>
   </div>
 
@@ -744,6 +907,23 @@
   <!-- ══════ NOTIFICATIONS ══════ -->
   <div id="notif"></div>
 
+  <!-- ══════ SUBNET CALCULATOR ══════ -->
+  <div id="subnet-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="font-size:14px;font-weight:700;color:var(--text)">🧮 Subnetz-Rechner</h3>
+      <button onclick="toggleSubnetCalc()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted)">×</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="sn-ip" class="rp-input" placeholder="z.B. 192.168.1.0" style="flex:1" oninput="calcSubnet()" />
+      <span style="align-self:center;font-weight:700;color:var(--dim)">/</span>
+      <input id="sn-prefix" class="rp-input" type="number" min="0" max="32" placeholder="24" style="width:55px" oninput="calcSubnet()" />
+    </div>
+    <div id="sn-result" style="font-size:12px;line-height:1.9;font-family:'JetBrains Mono',monospace;background:var(--panel);border-radius:8px;padding:10px;color:var(--text2);min-height:80px">
+      <span style="color:var(--muted)">IP und Präfixlänge eingeben…</span>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted)">Tipp: /24 = 254 Hosts · /16 = 65534 Hosts · /8 = 16M Hosts</div>
+  </div>
+
   <!-- ══════ HELP PANEL ══════ -->
   <div id="help-panel">
     <div style="display:flex;align-items:center;justify-content:space-between">
@@ -787,12 +967,15 @@
     </div>
     <div
       style="margin-top:12px;padding:10px;background:var(--accentDim);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.8;font-weight:600">
-      <strong>FILIUS-Funktionen in NetSim:</strong><br>
+      <strong>FILIUS-Funktionen in NetSim V1.2:</strong><br>
       ✓ Entwurf- und Simulationsmodus<br>
-      ✓ Webserver + Webbrowser + DNS + DHCP<br>
+      ✓ Webserver + Browser + DNS + DHCP<br>
       ✓ E-Mail (SMTP/POP3) · Echo-Server · FTP<br>
       ✓ Routing-Tabellen · ARP · Paketaufzeichnung<br>
-      ✓ Ping · Tracert · ipconfig · nslookup · host
+      ✓ Ping · Tracert · ipconfig · nslookup<br>
+      ✓ Hub · WLAN-AP · Subnetz-Rechner<br>
+      ✓ PNG-Export · Gitter-Snap<br>
+      ✓ netstat · route · ssh · wget · ls · cat
     </div>
   </div>
 
@@ -800,8 +983,6 @@
   <input type="file" id="file-load" accept=".json" style="display:none" onchange="loadFile(event)" />
 
   <script src="netsim.js"></script>
-
-  <!-- © 2026 Louis Döring / NetSim – CC BY-NC-ND 4.0 – https://creativecommons.org/licenses/by-nc-nd/4.0/ -->
 
 </body>
 
