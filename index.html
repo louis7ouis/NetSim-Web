@@ -210,118 +210,98 @@
                 <p>Geräte links auswählen, auf die Fläche ziehen und anschließend verkabeln.</p>
             </div>
         </div>
-    </div>
-    
-    <!-- STATUSBAR -->
-<div id="statusbar">
-        <div class="sb-item"><span id="sb-nodes">0</span> Geräte</div>
-        <div class="sep"></div>
-        <div class="sb-item"><span id="sb-cables">0</span> Kabel</div>
-        <div id="sb-sel" style="display:none;" class="sb-item">
-          <span style="color:var(--muted)">▸</span>
-          <span id="sb-selname" style="color:var(--accent);font-weight:700;font-size:11.5px"></span>
-        </div>
-        <div class="sb-right">
-            <span id="sb-mode">Entwurfsmodus</span>
-            <span class="sep"></span>
-            <span class="sb-key">C</span> Kabel
-            <span class="sb-key">D</span> Löschen
-            <span class="sb-key">Mausrad</span> Zoomen
-            <span class="sb-key">Leertaste</span> Modus
-        </div>
-    </div>
-</div>
 
-<!-- CONFIG WINDOW -->
-<div id="cfg-window">
-    <div class="cfw-titlebar" id="cfw-titlebar">
-        <div class="cfw-dots">
-            <div class="cfw-dot r" onclick="hideCfgWindow()"></div>
-            <div class="cfw-dot y"></div>
-            <div class="cfw-dot g"></div>
+        <!-- CONFIG SIDEBAR (Fixed) -->
+        <div id="cfg-window">
+            <div class="cfw-titlebar" id="cfw-titlebar">
+                <div class="cfw-dots">
+                    <div class="cfw-dot r" onclick="hideCfgWindow()"></div>
+                    <div class="cfw-dot y"></div>
+                    <div class="cfw-dot g"></div>
+                </div>
+                <div class="cfw-name" id="cfw-name">Gerät</div>
+                <div class="cfw-type" id="cfw-type">PC</div>
+            </div>
+            <div class="cfw-tabs">
+                <div class="cfw-tab active" onclick="switchTab('cfg')">Konfiguration</div>
+                <div class="cfw-tab" onclick="switchTab('apps')">Programme</div>
+                <div class="cfw-tab" onclick="switchTab('log')">Protokoll</div>
+            </div>
+            
+            <div id="ctab-content-cfg" class="cfw-tabcontent active">
+                <div class="rp-section">
+                    <div class="rp-label">Hardware</div>
+                    <div class="rp-field">
+                        <label>Gerätename</label>
+                        <input type="text" id="cfg-name" class="rp-input" onchange="cfgUpdate('name', this.value)">
+                    </div>
+                    <div class="rp-field">
+                        <label>MAC-Adresse</label>
+                        <input type="text" id="cfg-mac" class="rp-input" readonly>
+                    </div>
+                </div>
+                
+                <div class="rp-section" id="cfg-net-section">
+                    <div class="rp-label">Netzwerk</div>
+                    <div class="rp-field">
+                        <label>IPv4-Adresse</label>
+                        <input type="text" id="cfg-ip" class="rp-input" placeholder="192.168.1.1" onchange="cfgUpdate('ip', this.value)">
+                    </div>
+                    <div class="rp-field">
+                        <label>Subnetzmaske</label>
+                        <input type="text" id="cfg-mask" class="rp-input" placeholder="255.255.255.0" onchange="cfgUpdate('mask', this.value)">
+                    </div>
+                    <div class="rp-field" id="cfg-gw-field">
+                        <label>Standardgateway</label>
+                        <input type="text" id="cfg-gw" class="rp-input" placeholder="192.168.1.1" onchange="cfgUpdate('gw', this.value)">
+                    </div>
+                    <div class="rp-field" id="cfg-dns-field">
+                        <label>DNS-Server</label>
+                        <input type="text" id="cfg-dns" class="rp-input" placeholder="8.8.8.8" onchange="cfgUpdate('dns', this.value)">
+                    </div>
+                    <div class="rp-field" id="cfg-dhcp-check">
+                        <label class="rp-check">
+                            <input type="checkbox" id="cfg-dhcp" onchange="cfgDHCP()">
+                            <span>DHCP verwenden</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="rp-section" id="cfg-ports-section">
+                    <div class="rp-label">Schnittstellen</div>
+                    <div id="cfg-ports-list"></div>
+                </div>
+                
+                <div class="rp-section">
+                    <button class="rp-btn danger" onclick="togglePower()">
+                        <span id="pwr-label">Ausschalten</span>
+                    </button>
+                    <button class="rp-btn primary" onclick="openTerminal()" id="btn-open-desktop">
+                        Desktop öffnen
+                    </button>
+                    <button class="rp-btn danger" onclick="deleteSelected()">
+                        Gerät entfernen
+                    </button>
+                </div>
+            </div>
+            
+            <div id="ctab-content-apps" class="cfw-tabcontent">
+                <div class="rp-section">
+                    <div class="rp-label">Apps installieren</div>
+                    <p style="font-size:11px;color:var(--dim);margin-bottom:10px;">Klicke auf eine App um sie zu installieren / deinstallieren</p>
+                    <div id="app-list" class="app-list"></div>
+                </div>
+            </div>
+            
+            <div id="ctab-content-log" class="cfw-tabcontent">
+                <div class="rp-section">
+                    <div class="rp-label">Ereignisprotokoll</div>
+                    <button class="rp-btn ghost" onclick="clearLog()" style="margin-bottom:8px;">Löschen</button>
+                    <div id="event-log"></div>
+                </div>
+            </div>
         </div>
-        <div class="cfw-name" id="cfw-name">Gerät</div>
-        <div class="cfw-type" id="cfw-type">PC</div>
     </div>
-    <div class="cfw-tabs">
-        <div class="cfw-tab active" onclick="switchTab('cfg')">Konfiguration</div>
-        <div class="cfw-tab" onclick="switchTab('apps')">Programme</div>
-        <div class="cfw-tab" onclick="switchTab('log')">Protokoll</div>
-    </div>
-    
-    <div id="ctab-content-cfg" class="cfw-tabcontent active">
-        <div class="rp-section">
-            <div class="rp-label">Hardware</div>
-            <div class="rp-field">
-                <label>Gerätename</label>
-                <input type="text" id="cfg-name" class="rp-input" onchange="cfgUpdate('name', this.value)">
-            </div>
-            <div class="rp-field">
-                <label>MAC-Adresse</label>
-                <input type="text" id="cfg-mac" class="rp-input" readonly>
-            </div>
-        </div>
-        
-        <div class="rp-section" id="cfg-net-section">
-            <div class="rp-label">Netzwerk</div>
-            <div class="rp-field">
-                <label>IPv4-Adresse</label>
-                <input type="text" id="cfg-ip" class="rp-input" placeholder="192.168.1.1" onchange="cfgUpdate('ip', this.value)">
-            </div>
-            <div class="rp-field">
-                <label>Subnetzmaske</label>
-                <input type="text" id="cfg-mask" class="rp-input" placeholder="255.255.255.0" onchange="cfgUpdate('mask', this.value)">
-            </div>
-            <div class="rp-field" id="cfg-gw-field">
-                <label>Standardgateway</label>
-                <input type="text" id="cfg-gw" class="rp-input" placeholder="192.168.1.1" onchange="cfgUpdate('gw', this.value)">
-            </div>
-            <div class="rp-field" id="cfg-dns-field">
-                <label>DNS-Server</label>
-                <input type="text" id="cfg-dns" class="rp-input" placeholder="8.8.8.8" onchange="cfgUpdate('dns', this.value)">
-            </div>
-            <div class="rp-field" id="cfg-dhcp-check">
-                <label class="rp-check">
-                    <input type="checkbox" id="cfg-dhcp" onchange="cfgDHCP()">
-                    <span>DHCP verwenden</span>
-                </label>
-            </div>
-        </div>
-        
-        <div class="rp-section" id="cfg-ports-section">
-            <div class="rp-label">Schnittstellen</div>
-            <div id="cfg-ports-list"></div>
-        </div>
-        
-        <div class="rp-section">
-            <button class="rp-btn danger" onclick="togglePower()">
-                <span id="pwr-label">Ausschalten</span>
-            </button>
-            <button class="rp-btn primary" onclick="openTerminal()" id="btn-open-desktop">
-                Desktop öffnen
-            </button>
-            <button class="rp-btn danger" onclick="deleteSelected()">
-                Gerät entfernen
-            </button>
-        </div>
-    </div>
-    
-    <div id="ctab-content-apps" class="cfw-tabcontent">
-        <div class="rp-section">
-            <div class="rp-label">Apps installieren</div>
-            <p style="font-size:11px;color:var(--dim);margin-bottom:10px;">Klicke auf eine App um sie zu installieren / deinstallieren</p>
-            <div id="app-list" class="app-list"></div>
-        </div>
-    </div>
-    
-    <div id="ctab-content-log" class="cfw-tabcontent">
-        <div class="rp-section">
-            <div class="rp-label">Ereignisprotokoll</div>
-            <button class="rp-btn ghost" onclick="clearLog()" style="margin-bottom:8px;">Löschen</button>
-            <div id="event-log"></div>
-        </div>
-    </div>
-</div>
 
 <!-- TERMINAL WINDOW -->
 <div id="cmd-overlay">
