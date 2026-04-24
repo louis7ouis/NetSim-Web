@@ -33,6 +33,8 @@ let dnsEntries = {};          // hostname -> ip
 let dnsRunning = false, dnsServerNode = null;
 let dhcpRunning = false, dhcpServerNode = null;
 let wsNodes = {};             // nodeId -> { running: bool, content: string }
+let mailServers = {};         // nodeId -> { running: bool, domain: string, accounts: [{email, username, password, inbox: []}] }
+let mailClients = {};         // nodeId -> { email, username, password, pop3Server, smtpServer }
 let appWindowNode = null;
 
 let ipCounters = { pc: 10, laptop: 20, router: 1, switch: 0, hub: 0, ap: 50, server: 100, modem: 0 };
@@ -53,9 +55,9 @@ const TYPES = {
 
 // FILIUS-Core Apps
 const APPS = {
-  pc:     ['webbrowser'],
-  laptop: ['webbrowser'],
-  server: ['webserver', 'dnsserver', 'dhcpserver'],
+  pc:     ['webbrowser', 'emailclient'],
+  laptop: ['webbrowser', 'emailclient'],
+  server: ['webserver', 'dnsserver', 'dhcpserver', 'mailserver'],
   router: [],
   switch: [],
   hub:    [],
@@ -68,6 +70,8 @@ const APP_META = {
   webserver:  { name: 'Webserver',   icon: '🖥',  desc: 'HTTP-Server betreiben' },
   dnsserver:  { name: 'DNS-Server',  icon: '🔖', desc: 'Hostnamen auflösen' },
   dhcpserver: { name: 'DHCP-Server', icon: '⚡', desc: 'IPs automatisch vergeben' },
+  mailserver: { name: 'E-Mail-Server', icon: '✉️', desc: 'Postfächer und Mail-Domain verwalten' },
+  emailclient:{ name: 'E-Mail', icon: '📨', desc: 'E-Mails senden und abrufen' },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -276,6 +280,7 @@ function addNode(type, x, y) {
     autoroute:   type === 'router',
     installedApps: (TYPES[type]?.defaultApps || []).slice(),
     routingTable: [],   // Bleibt für Gateway-Kompatibilität
+    interfaces: type === 'router' ? {} : undefined,
   };
   nodes.push(n);
   n.el = buildNodeEl(n);
@@ -422,6 +427,27 @@ function refreshNode(n) {
   n.el.style.left = n.x + 'px'; n.el.style.top = n.y + 'px';
 }
 
+function getRouterInterfaceEntries(router) {
+  if (!router || router.type !== 'router') return [];
+  if (!router.interfaces) router.interfaces = {};
+  return neighbors(router).map((nb, idx) => {
+    if (!router.interfaces[nb.id]) {
+      router.interfaces[nb.id] = { ip: '', mask: '255.255.255.0', label: `eth${idx}` };
+    } else if (!router.interfaces[nb.id].label) {
+      router.interfaces[nb.id].label = `eth${idx}`;
+    }
+    return { idx, neighbor: nb, iface: router.interfaces[nb.id] };
+  });
+}
+
+function cfgUpdateRouterIface(neighborId, field, value) {
+  if (!selNode || selNode.type !== 'router') return;
+  if (!selNode.interfaces) selNode.interfaces = {};
+  if (!selNode.interfaces[neighborId]) selNode.interfaces[neighborId] = { ip: '', mask: '255.255.255.0', label: 'eth?' };
+  selNode.interfaces[neighborId][field] = value;
+  showCfg(selNode);
+}
+
 // ════════════════════════════════════════════════════════════
 // MAUS-INTERAKTIONEN
 // ════════════════════════════════════════════════════════════
@@ -549,15 +575,30 @@ function showCfg(n) {
   document.getElementById('cfg-gw-field').style.display     = (hasIP && n.type !== 'router') ? 'block' : 'none';
   document.getElementById('cfg-dns-field').style.display    = (hasIP && n.type !== 'router') ? 'block' : 'none';
   document.getElementById('cfg-dhcp-check').style.display   = (hasIP && n.type !== 'router') ? 'flex'  : 'none';
+  document.getElementById('cfg-ip').disabled = n.type === 'router';
+  document.getElementById('cfg-mask').disabled = n.type === 'router';
+  document.getElementById('cfg-ip').placeholder = n.type === 'router' ? 'Router-IPs unten pro Schnittstelle setzen' : '192.168.1.1';
+  document.getElementById('cfg-mask').placeholder = n.type === 'router' ? 'Maske unten pro Schnittstelle setzen' : '255.255.255.0';
   // Autorouting (BFS) läuft automatisch — kein separates UI nötig
   document.getElementById('pwr-label').textContent = n.on ? 'Ausschalten' : 'Einschalten';
   const hasPorts = n.type === 'router';
   document.getElementById('cfg-ports-section').style.display = hasPorts ? 'block' : 'none';
   if (hasPorts) {
-    const nbs = neighbors(n);
-    document.getElementById('cfg-ports-list').innerHTML = nbs.length
-      ? nbs.map((x, i) => `<div style="padding:3px 0;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--dim)">eth${i}: ${x.name} (${x.ip || '—'})</div>`).join('')
-      : '<span style="color:var(--muted)">Keine Verbindungen</span>';
+    const entries = getRouterInterfaceEntries(n);
+    document.getElementById('cfg-ports-list').innerHTML = entries.length
+      ? entries.map(({ idx, neighbor, iface }) => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--dim);margin-bottom:7px">
+            eth${idx}: ${neighbor.name} (${neighbor.ip || 'ohne IP'})
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <input class="rp-input" placeholder="IP von eth${idx}" value="${(iface.ip || '').replace(/"/g, '&quot;')}"
+              onchange="cfgUpdateRouterIface(${neighbor.id}, 'ip', this.value)">
+            <input class="rp-input" placeholder="Maske" value="${(iface.mask || '').replace(/"/g, '&quot;')}"
+              onchange="cfgUpdateRouterIface(${neighbor.id}, 'mask', this.value)">
+          </div>
+        </div>`).join('')
+      : '<span style="color:var(--muted)">Keine Verbindungen. Verbinde den Router zuerst mit Kabeln.</span>';
   }
   renderApps(n);
 }
@@ -767,6 +808,14 @@ function _dtOpenApp(appId) {
           onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Öffnen</button>
       </div>
       <div id="dt-browser-view" style="flex:1;overflow-y:auto;background:#fff;min-height:0">${savedHtml}</div>`;
+    _dtMovedInfo = null;
+
+  } else if (appId === 'mailserver') {
+    renderMailServerApp();
+    _dtMovedInfo = null;
+
+  } else if (appId === 'emailclient') {
+    renderEmailClientApp();
     _dtMovedInfo = null;
 
   // Apps ohne eigenes DOM-Fenster → Info-Karte
@@ -991,6 +1040,8 @@ function addCable(a, b) {
     notify('Verbindung existiert bereits', 'error'); return;
   }
   cables.push({ id: nextId++, a: a.id, b: b.id, glow: 0 });
+  if (a.type === 'router') getRouterInterfaceEntries(a);
+  if (b.type === 'router') getRouterInterfaceEntries(b);
   log(`Verbunden: ${a.name} ↔ ${b.name}`, 'success');
   draw(); updateSB();
 }
@@ -998,6 +1049,7 @@ function addCable(a, b) {
 function removeNode(n) {
   cables = cables.filter(c => c.a !== n.id && c.b !== n.id);
   nodes  = nodes.filter(nd => nd.id !== n.id);
+  nodes.filter(nd => nd.type === 'router' && nd.interfaces).forEach(router => { delete router.interfaces[n.id]; });
   n.el?.remove();
   if (selNode === n) select(null);
   draw(); updateSB();
@@ -1077,6 +1129,28 @@ function neighbors(n) {
     .filter(Boolean);
 }
 
+function isLayer2Device(n) {
+  return n && (n.type === 'switch' || n.type === 'hub' || n.type === 'ap');
+}
+
+function findLayer2Path(src, predicate) {
+  if (!src) return null;
+  const visited = new Set([src.id]);
+  const q = [[src]];
+  while (q.length) {
+    const path = q.shift();
+    const cur = path[path.length - 1];
+    if (predicate(cur)) return path;
+    for (const nb of neighbors(cur)) {
+      if (!nb?.on || visited.has(nb.id)) continue;
+      if (!isLayer2Device(nb) && !predicate(nb)) continue;
+      visited.add(nb.id);
+      q.push([...path, nb]);
+    }
+  }
+  return null;
+}
+
 /**
  * Findet den kürzesten Pfad von src zum Ziel-Gerät mit dstIP.
  * @returns {Array|null} Pfad-Array oder null wenn nicht erreichbar
@@ -1085,18 +1159,37 @@ function findPath(src, dstIP) {
   const dst = nodes.find(n => n.ip === dstIP);
   if (!dst) return null;
   if (src.id === dst.id) return [src];
-  const visited = new Set([src.id]);
-  const q = [[src]];
-  while (q.length) {
-    const path = q.shift();
-    const cur  = path[path.length - 1];
-    for (const nb of neighbors(cur)) {
-      if (!nb.on) continue;
-      if (nb.id === dst.id) return [...path, nb];
-      if (!visited.has(nb.id)) { visited.add(nb.id); q.push([...path, nb]); }
-    }
+
+  const srcHasIP = !!src.ip;
+  const dstHasIP = !!dst.ip;
+  const sameNet = srcHasIP && dstHasIP && sameSubnet(src.ip, dst.ip, src.mask || '255.255.255.0');
+  if (sameNet) {
+    return findLayer2Path(src, node => node.id === dst.id);
   }
-  return null;
+
+  if (!src.gw) return null;
+  const gwNode = nodes.find(n =>
+    n.on &&
+    n.type === 'router' &&
+    Object.values(n.interfaces || {}).some(iface => iface.ip === src.gw)
+  );
+  if (!gwNode) return null;
+
+  const gwIface = Object.values(gwNode.interfaces || {}).find(iface => iface.ip === src.gw);
+  if (!gwIface) return null;
+
+  const pathToGw = findLayer2Path(src, node => node.id === gwNode.id);
+  if (!pathToGw) return null;
+
+  const targetIface = Object.values(gwNode.interfaces || {}).find(iface =>
+    iface.ip && dst.ip && sameSubnet(iface.ip, dst.ip, iface.mask || '255.255.255.0')
+  );
+  if (!targetIface) return null;
+
+  const pathFromGw = findLayer2Path(gwNode, node => node.id === dst.id);
+  if (!pathFromGw) return null;
+
+  return [...pathToGw, ...pathFromGw.slice(1)];
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1355,6 +1448,13 @@ function handleCmd(raw) {
     if (!name) { cPrint('Syntax: nslookup <hostname>', 'err'); cPrint('Beispiel: nslookup www.schule.de', 'sys'); return; }
     cPrint('', 'sys');
     const lower = name.toLowerCase();
+    const configuredDns = getConfiguredDnsServer(n);
+    if (!configuredDns || !dnsRunning || dnsServerNode?.id !== configuredDns.id) {
+      cPrint('✗ Kein passender DNS-Server im Client eingetragen oder gestartet.', 'err');
+      cPrint('  Tipp: Im Geraet unter Netzwerk die DNS-IP setzen und den DNS-Server starten.', 'warn');
+      cPrint('', 'sys');
+      return;
+    }
     if (dnsEntries[lower]) {
       // DNS-Anfrage animieren, dann Ergebnis ausgeben
       if (dnsRunning && dnsServerNode && n) {
@@ -1382,18 +1482,12 @@ function handleCmd(raw) {
         else cPrint(`✗ IP ${name} keinem Gerät bekannt`, 'err');
         cPrint('', 'sys');
       } else {
-        if (dnsRunning && dnsServerNode && n) {
-          cPrint(`📡 DNS-Anfrage an ${dnsServerNode.name}…`, 'sys');
-          animateDNS(n, () => {
-            cPrint(`✗ "${name}" nicht gefunden`, 'err');
-            cPrint('  Tipp: DNS-Eintrag im DNS-Server hinzufügen.', 'warn');
-            cPrint('', 'sys');
-          });
-        } else {
+        cPrint(`📡 DNS-Anfrage an ${dnsServerNode.name}…`, 'sys');
+        animateDNS(n, () => {
           cPrint(`✗ "${name}" nicht gefunden`, 'err');
-          cPrint('  Tipp: DNS-Server einrichten und Eintrag hinzufügen.', 'warn');
+          cPrint('  Tipp: DNS-Eintrag im DNS-Server hinzufügen.', 'warn');
           cPrint('', 'sys');
-        }
+        });
       }
     }
     return;
@@ -1408,7 +1502,8 @@ function handleCmd(raw) {
     else                { target = parts[1]; }
     if (!target) { cPrint('Syntax: ping [-n Anz] <IP|Name>', 'err'); return; }
     const isHostname = !/^\d+\.\d+\.\d+\.\d+$/.test(target);
-    if (isHostname && dnsRunning && dnsServerNode && n && dnsEntries[target.toLowerCase()]) {
+    const dnsNode = getConfiguredDnsServer(n);
+    if (isHostname && dnsNode && dnsRunning && dnsServerNode?.id === dnsNode.id && n && dnsEntries[target.toLowerCase()]) {
       cPrint(`📡 DNS-Anfrage: ${target}…`, 'sys');
       animateDNS(n, () => doPing(n, resolveHost(target, n), count));
     } else {
@@ -1422,7 +1517,8 @@ function handleCmd(raw) {
     const target = parts[1];
     if (!target) { cPrint('Syntax: tracert <IP|Name>', 'err'); return; }
     const isHostname = !/^\d+\.\d+\.\d+\.\d+$/.test(target);
-    if (isHostname && dnsRunning && dnsServerNode && n && dnsEntries[target.toLowerCase()]) {
+    const dnsNode = getConfiguredDnsServer(n);
+    if (isHostname && dnsNode && dnsRunning && dnsServerNode?.id === dnsNode.id && n && dnsEntries[target.toLowerCase()]) {
       cPrint(`📡 DNS-Anfrage: ${target}…`, 'sys');
       animateDNS(n, () => doTracert(n, resolveHost(target, n)));
     } else {
@@ -1440,7 +1536,8 @@ function handleCmd(raw) {
 function resolveHost(name, fromNode) {
   if (/^\d+\.\d+\.\d+\.\d+$/.test(name)) return name;
   const lower = name.toLowerCase();
-  if (dnsEntries[lower]) return dnsEntries[lower];
+  const dnsNode = getConfiguredDnsServer(fromNode);
+  if (dnsNode && dnsRunning && dnsServerNode?.id === dnsNode.id && dnsEntries[lower]) return dnsEntries[lower];
   const byName = nodes.find(x => x.name.toLowerCase() === lower);
   if (byName) return byName.ip;
   return name;
@@ -1694,6 +1791,205 @@ function webserverToggle() {
   notify(ws.running ? '✓ Webserver gestartet' : 'Webserver gestoppt', ws.running ? 'success' : 'warn');
 }
 
+function getMailServerState(node) {
+  const nodeId = node?.id;
+  if (!nodeId) return null;
+  if (!mailServers[nodeId]) {
+    mailServers[nodeId] = { running: false, domain: 'schule.local', accounts: [] };
+  }
+  return mailServers[nodeId];
+}
+
+function getMailClientState(node) {
+  const nodeId = node?.id;
+  if (!nodeId) return null;
+  if (!mailClients[nodeId]) {
+    mailClients[nodeId] = { email: '', username: '', password: '', pop3Server: '', smtpServer: '' };
+  }
+  return mailClients[nodeId];
+}
+
+function findMailServerByDomain(domain) {
+  domain = (domain || '').toLowerCase();
+  return nodes.find(n => {
+    const srv = mailServers[n.id];
+    return srv?.running && (srv.domain || '').toLowerCase() === domain;
+  }) || null;
+}
+
+function findMailAccount(serverState, email) {
+  return (serverState?.accounts || []).find(acc => acc.email.toLowerCase() === email.toLowerCase()) || null;
+}
+
+function getConfiguredDnsServer(fromNode) {
+  if (!fromNode?.dns) return null;
+  return nodes.find(n => n.ip === fromNode.dns && n.on && n.installedApps?.includes('dnsserver')) || null;
+}
+
+function renderMailServerApp() {
+  const node = appWindowNode;
+  const state = getMailServerState(node);
+  const panel = document.getElementById('dt-app-panel');
+  const rows = state.accounts.length
+    ? state.accounts.map(acc => `
+      <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-weight:700;font-size:12px">${acc.email}</div>
+          <div style="font-size:11px;color:var(--muted)">Benutzer: ${acc.username}</div>
+        </div>
+        <button onclick="mailServerDeleteAccount('${acc.email.replace(/'/g, "\\'")}')" class="rp-btn danger" style="padding:6px 10px">Löschen</button>
+      </div>`).join('')
+    : '<div style="font-size:12px;color:var(--muted)">Noch keine Postfächer angelegt.</div>';
+
+  panel.innerHTML = `
+    <div style="padding:18px;display:grid;gap:14px;width:100%">
+      <div class="rp-section">
+        <div class="rp-label">Mailserver</div>
+        <div class="rp-field">
+          <label>Mail-Domain</label>
+          <input id="mail-domain" class="rp-input" value="${(state.domain || '').replace(/"/g, '&quot;')}" placeholder="schule.local">
+        </div>
+        <button class="rp-btn primary" onclick="mailServerToggle()">${state.running ? '■ Mailserver stoppen' : '▶ Mailserver starten'}</button>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">
+          ${state.running ? `Aktiv auf ${node.name}` : 'Server ist gestoppt'}
+        </div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Postfach anlegen</div>
+        <div class="rp-field"><label>Benutzername</label><input id="mail-user" class="rp-input" placeholder="bob"></div>
+        <div class="rp-field"><label>Passwort</label><input id="mail-pass" class="rp-input" placeholder="bob"></div>
+        <button class="rp-btn primary" onclick="mailServerAddAccount()">Postfach hinzufügen</button>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Postfächer</div>
+        ${rows}
+      </div>
+    </div>`;
+}
+
+function mailServerToggle() {
+  const state = getMailServerState(appWindowNode);
+  const domainInput = document.getElementById('mail-domain');
+  if (domainInput) state.domain = domainInput.value.trim() || 'schule.local';
+  state.running = !state.running;
+  log(`Mailserver ${state.running ? 'gestartet' : 'gestoppt'} auf ${appWindowNode?.name}`, state.running ? 'success' : 'warn');
+  renderMailServerApp();
+}
+
+function mailServerAddAccount() {
+  const state = getMailServerState(appWindowNode);
+  const user = document.getElementById('mail-user')?.value.trim();
+  const pass = document.getElementById('mail-pass')?.value.trim();
+  const domain = document.getElementById('mail-domain')?.value.trim() || state.domain || 'schule.local';
+  state.domain = domain;
+  if (!user || !pass) { notify('Benutzername und Passwort angeben', 'error'); return; }
+  const email = `${user}@${domain}`.toLowerCase();
+  if (findMailAccount(state, email)) { notify('Postfach existiert bereits', 'error'); return; }
+  state.accounts.push({ email, username: user, password: pass, inbox: [] });
+  log(`Mailkonto angelegt: ${email}`, 'success');
+  renderMailServerApp();
+}
+
+function mailServerDeleteAccount(email) {
+  const state = getMailServerState(appWindowNode);
+  state.accounts = state.accounts.filter(acc => acc.email !== email);
+  renderMailServerApp();
+}
+
+function renderEmailClientApp() {
+  const node = appWindowNode;
+  const state = getMailClientState(node);
+  const accountEmail = (state.email || '').toLowerCase();
+  const domain = accountEmail.split('@')[1] || '';
+  const serverNode = domain ? findMailServerByDomain(domain) : null;
+  const serverState = serverNode ? getMailServerState(serverNode) : null;
+  const mailbox = serverState ? findMailAccount(serverState, accountEmail) : null;
+  const inboxHtml = mailbox?.inbox?.length
+    ? mailbox.inbox.slice().reverse().map(msg => `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:700">${msg.subject}</div>
+        <div style="font-size:11px;color:var(--muted);margin:3px 0 6px">Von ${msg.from}</div>
+        <div style="font-size:12px;white-space:pre-wrap;color:var(--text)">${msg.body}</div>
+      </div>`).join('')
+    : '<div style="font-size:12px;color:var(--muted)">Kein Eingang vorhanden.</div>';
+
+  const suggestedServer = state.smtpServer || (serverNode?.ip || '');
+  const suggestedPop3 = state.pop3Server || (serverNode?.ip || '');
+  const domainHint = domain ? `${domain}` : 'beispiel.local';
+  document.getElementById('dt-app-panel').innerHTML = `
+    <div style="padding:18px;display:grid;gap:14px;width:100%">
+      <div class="rp-section">
+        <div class="rp-label">Konto</div>
+        <div class="rp-field"><label>E-Mail-Adresse</label><input id="email-address" class="rp-input" value="${(state.email || '').replace(/"/g,'&quot;')}" placeholder="alice@${domainHint}"></div>
+        <div class="rp-field"><label>Benutzername</label><input id="email-user" class="rp-input" value="${(state.username || '').replace(/"/g,'&quot;')}" placeholder="alice"></div>
+        <div class="rp-field"><label>Passwort</label><input id="email-pass" class="rp-input" value="${(state.password || '').replace(/"/g,'&quot;')}" placeholder="passwort"></div>
+        <div class="rp-field"><label>SMTP-Server</label><input id="email-smtp" class="rp-input" value="${suggestedServer.replace(/"/g,'&quot;')}" placeholder="192.168.0.10"></div>
+        <div class="rp-field"><label>POP3-Server</label><input id="email-pop3" class="rp-input" value="${suggestedPop3.replace(/"/g,'&quot;')}" placeholder="192.168.0.10"></div>
+        <button class="rp-btn primary" onclick="emailClientSaveConfig()">Konto speichern</button>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Neue Nachricht</div>
+        <div class="rp-field"><label>An</label><input id="email-to" class="rp-input" placeholder="bob@${domainHint}"></div>
+        <div class="rp-field"><label>Betreff</label><input id="email-subject" class="rp-input" placeholder="Hallo"></div>
+        <div class="rp-field"><label>Nachricht</label><textarea id="email-body" class="rp-input" rows="5" placeholder="Text"></textarea></div>
+        <div style="display:flex;gap:8px">
+          <button class="rp-btn primary" onclick="emailClientSend()">Senden</button>
+          <button class="rp-btn" onclick="renderEmailClientApp()">Abrufen</button>
+        </div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Posteingang</div>
+        ${inboxHtml}
+      </div>
+    </div>`;
+}
+
+function emailClientSaveConfig() {
+  const state = getMailClientState(appWindowNode);
+  state.email = document.getElementById('email-address')?.value.trim() || '';
+  state.username = document.getElementById('email-user')?.value.trim() || '';
+  state.password = document.getElementById('email-pass')?.value.trim() || '';
+  state.smtpServer = document.getElementById('email-smtp')?.value.trim() || '';
+  state.pop3Server = document.getElementById('email-pop3')?.value.trim() || '';
+  notify('Mailkonto gespeichert', 'success');
+  renderEmailClientApp();
+}
+
+function emailClientSend() {
+  const client = appWindowNode;
+  const state = getMailClientState(client);
+  emailClientSaveConfig();
+  const to = document.getElementById('email-to')?.value.trim().toLowerCase();
+  const subject = document.getElementById('email-subject')?.value.trim() || '(ohne Betreff)';
+  const body = document.getElementById('email-body')?.value.trim() || '';
+  if (!state.email || !to) { notify('Absenderkonto und Empfänger angeben', 'error'); return; }
+
+  const targetDomain = to.split('@')[1];
+  const serverNode = findMailServerByDomain(targetDomain);
+  if (!serverNode) { notify('Kein laufender Mailserver für diese Domain gefunden', 'error'); return; }
+  const serverState = getMailServerState(serverNode);
+  const targetAccount = findMailAccount(serverState, to);
+  if (!targetAccount) { notify('Empfängerkonto existiert nicht', 'error'); return; }
+  if (!client.ip) { notify('Client hat keine IP-Adresse', 'error'); return; }
+  const path = findPath(client, serverNode.ip);
+  if (!path) { notify('Kein Netzwerkpfad zum Mailserver', 'error'); return; }
+
+  targetAccount.inbox.push({
+    from: state.email,
+    to,
+    subject,
+    body,
+    date: new Date().toISOString()
+  });
+  animatePkt(path, '#7c3aed');
+  log(`E-Mail ${state.email} → ${to}`, 'packet');
+  notify('E-Mail gesendet', 'success');
+  document.getElementById('email-to').value = '';
+  document.getElementById('email-subject').value = '';
+  document.getElementById('email-body').value = '';
+  renderEmailClientApp();
+}
+
 // ════════════════════════════════════════════════════════════
 // BROWSER FENSTER (eigenständig)
 // ════════════════════════════════════════════════════════════
@@ -1706,6 +2002,15 @@ function browserGo() {
   const needsDNS = !/^\d+\.\d+\.\d+\.\d+$/.test(host);
 
   if (needsDNS) {
+    const configuredDns = getConfiguredDnsServer(appWindowNode);
+    if (!configuredDns || !dnsRunning || dnsServerNode?.id !== configuredDns.id) {
+      view.innerHTML = `<div style="padding:20px;color:#c0392b;font-family:sans-serif">
+        <b>DNS nicht konfiguriert</b><br><br>
+        Dieses Gerät hat keinen passenden DNS-Server eingetragen oder der DNS-Dienst läuft nicht.<br><br>
+        <small>💡 Tipp: Im Client die DNS-IP setzen und den DNS-Server auf dem Server starten.</small>
+      </div>`;
+      return;
+    }
     const lower = host.toLowerCase();
     if (dnsEntries[lower]) targetIP = dnsEntries[lower];
     else {
@@ -1809,6 +2114,11 @@ function dtBrowserGo() {
   const needsDNS = !/^\d+\.\d+\.\d+\.\d+$/.test(host);
 
   if (needsDNS) {
+    const configuredDns = getConfiguredDnsServer(appWindowNode);
+    if (!configuredDns || !dnsRunning || dnsServerNode?.id !== configuredDns.id) {
+      return err('🔴', 'DNS nicht konfiguriert', 'Dieses Geraet hat keinen passenden DNS-Server eingetragen oder der Dienst laeuft nicht.',
+        '💡 Trage im Client eine DNS-IP ein und starte den DNS-Server auf dem Server.');
+    }
     const lower = host.toLowerCase();
     if (dnsEntries[lower]) targetIP = dnsEntries[lower];
     else {
@@ -1930,7 +2240,19 @@ function notify(msg, type = 'info') {
 // SPEICHERN / LADEN (localStorage + Datei-Download)
 // ════════════════════════════════════════════════════════════
 function saveNet() {
-  const data = JSON.stringify({ nodes: nodes.map(n => ({ ...n, el: undefined })), cables, dnsEntries, version: '3' });
+  const data = JSON.stringify({
+    nodes: nodes.map(n => ({ ...n, el: undefined })),
+    cables,
+    dnsEntries,
+    wsNodes,
+    mailServers,
+    mailClients,
+    dhcpRunning,
+    dhcpServerNodeId: dhcpServerNode?.id || null,
+    dnsRunning,
+    dnsServerNodeId: dnsServerNode?.id || null,
+    version: '4'
+  });
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(JSON.stringify({ action: 'save', payload: data }));
   } else {
@@ -1970,6 +2292,13 @@ function loadDataObj(jsonString) {
       const a = nodes.find(n => n.id === idMap[c.a]), b = nodes.find(n => n.id === idMap[c.b]);
       if (a && b) addCable(a, b);
     });
+    wsNodes = data.wsNodes || {};
+    mailServers = data.mailServers || {};
+    mailClients = data.mailClients || {};
+    dhcpRunning = !!data.dhcpRunning;
+    dnsRunning = !!data.dnsRunning;
+    dhcpServerNode = nodes.find(n => n.id === idMap[data.dhcpServerNodeId]) || null;
+    dnsServerNode = nodes.find(n => n.id === idMap[data.dnsServerNodeId]) || null;
     notify('📂 Netzwerk geladen', 'success');
   } catch (err) {
     console.error(err);
@@ -2000,6 +2329,8 @@ function clearAll() {
   dhcpRunning = false; dhcpServerNode = null;
   dnsRunning  = false; dnsServerNode  = null;
   wsNodes = {};
+  mailServers = {};
+  mailClients = {};
   nextId  = 1;
   draw(); updateSB(); select(null);
   document.getElementById('empty-state').style.display = 'block';
@@ -2067,224 +2398,75 @@ function loadExample() {
   const pc102b = addNode('pc',     W * 0.82, H * 0.70);
   const ap102  = addNode('ap',     W * 0.92, H * 0.70);
 
-  // ════════════════════════════════════════════════════════
-  // KONFIGURATION
-  // ════════════════════════════════════════════════════════
-
-  // Modem / Internet-Gateway
   modem.name = 'Internet (Modem)';
-  modem.ip   = '10.0.0.1';
-  modem.mask = '255.255.255.0';
-
-  // Schul-Router
   router.name = 'Schul-Router';
-  router.ip   = '192.168.0.1';
-  router.mask = '255.255.255.0';
-  router.gw   = '10.0.0.1';
-
-  // Schul-Server (DNS + DHCP + Webserver)
   srv.name = 'Schul-Server';
-  srv.ip   = '192.168.0.10';
-  srv.mask = '255.255.255.0';
-  srv.gw   = '192.168.0.1';
-  srv.dns  = '192.168.0.10';
-  srv.installedApps = ['webserver', 'dnsserver', 'dhcpserver'];
-
-  // Kern-Switch
   swKern.name = 'Kern-Switch';
-
-  // ── Lehrerzimmer ──────────────────────────────────────
   swLehrer.name = 'SW-Lehrerzimmer';
-
   pcLehrer.name = 'Lehrer-PC';
-  pcLehrer.ip   = '192.168.0.20';
-  pcLehrer.mask = '255.255.255.0';
-  pcLehrer.gw   = '192.168.0.1';
-  pcLehrer.dns  = '192.168.0.10';
-  pcLehrer.installedApps = ['webbrowser'];
-
   ltLehrer.name = 'Lehrer-Laptop';
-  ltLehrer.ip   = '192.168.0.21';
-  ltLehrer.mask = '255.255.255.0';
-  ltLehrer.gw   = '192.168.0.1';
-  ltLehrer.dns  = '192.168.0.10';
-  ltLehrer.installedApps = ['webbrowser'];
-
   apLehrer.name = 'WLAN-Lehrerzimmer';
-  apLehrer.ip   = '192.168.0.22';
-  apLehrer.mask = '255.255.255.0';
-  apLehrer.gw   = '192.168.0.1';
-
-  // ── Computerraum 101 ──────────────────────────────────
   sw101.name = 'SW-Raum101';
-
   pc101a.name = 'R101-PC-01';
-  pc101a.ip   = '192.168.0.101';
-  pc101a.mask = '255.255.255.0';
-  pc101a.gw   = '192.168.0.1';
-  pc101a.dns  = '192.168.0.10';
-  pc101a.installedApps = ['webbrowser'];
-
   pc101b.name = 'R101-PC-02';
-  pc101b.ip   = '192.168.0.102';
-  pc101b.mask = '255.255.255.0';
-  pc101b.gw   = '192.168.0.1';
-  pc101b.dns  = '192.168.0.10';
-  pc101b.installedApps = ['webbrowser'];
-
   pc101c.name = 'R101-PC-03';
-  pc101c.ip   = '192.168.0.103';
-  pc101c.mask = '255.255.255.0';
-  pc101c.gw   = '192.168.0.1';
-  pc101c.dns  = '192.168.0.10';
-  pc101c.installedApps = ['webbrowser'];
-
-  // ── Computerraum 102 ──────────────────────────────────
   sw102.name = 'SW-Raum102';
-
   pc102a.name = 'R102-PC-01';
-  pc102a.ip   = '192.168.0.111';
-  pc102a.mask = '255.255.255.0';
-  pc102a.gw   = '192.168.0.1';
-  pc102a.dns  = '192.168.0.10';
-  pc102a.installedApps = ['webbrowser'];
-
   pc102b.name = 'R102-PC-02';
-  pc102b.ip   = '192.168.0.112';
-  pc102b.mask = '255.255.255.0';
-  pc102b.gw   = '192.168.0.1';
-  pc102b.dns  = '192.168.0.10';
-  pc102b.installedApps = ['webbrowser'];
-
   ap102.name = 'WLAN-Raum102';
-  ap102.ip   = '192.168.0.113';
-  ap102.mask = '255.255.255.0';
-  ap102.gw   = '192.168.0.1';
 
   // ════════════════════════════════════════════════════════
   // WEBSERVER-INHALT
   // ════════════════════════════════════════════════════════
   wsNodes[srv.id] = {
-    running: true,
+    running: false,
     content: `
 <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:20px">
   <div style="background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:24px 28px;border-radius:10px;margin-bottom:20px">
     <div style="font-size:28px;margin-bottom:6px">🏫 Realschule Helmbrechts</div>
-    <div style="font-size:14px;opacity:.85">Schulisches Intranet · Schul-Server 192.168.0.10</div>
+    <div style="font-size:14px;opacity:.85">Filius-artige Vorlage zum selbst aufbauen</div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
-    <div style="background:#e8f5e9;border-left:4px solid #43a047;padding:14px;border-radius:6px">
-      <div style="font-weight:700;color:#2e7d32;margin-bottom:6px">📅 Stundenplan</div>
-      <div style="font-size:12px;color:#555">Mo–Fr: 8:00 – 13:15 Uhr<br>Mi: 8:00 – 11:30 Uhr</div>
-    </div>
-    <div style="background:#e3f2fd;border-left:4px solid #1e88e5;padding:14px;border-radius:6px">
-      <div style="font-weight:700;color:#1565c0;margin-bottom:6px">📢 Aktuelles</div>
-      <div style="font-size:12px;color:#555">IT-Projekt: Netzwerksimulation<br>Projekt von NetSim</div>
-    </div>
-    <div style="background:#fff3e0;border-left:4px solid #fb8c00;padding:14px;border-radius:6px">
-      <div style="font-weight:700;color:#e65100;margin-bottom:6px">🖥️ IT-Raum 101</div>
-      <div style="font-size:12px;color:#555">3 PCs · Switch · Subnetz<br>192.168.0.101 – .103</div>
-    </div>
-    <div style="background:#fce4ec;border-left:4px solid #e91e63;padding:14px;border-radius:6px">
-      <div style="font-weight:700;color:#880e4f;margin-bottom:6px">📡 IT-Raum 102</div>
-      <div style="font-size:12px;color:#555">2 PCs · WLAN-AP · Switch<br>192.168.0.111 – .113</div>
-    </div>
-  </div>
-  <div style="background:#f5f5f5;border-radius:8px;padding:16px;font-size:12px">
-    <div style="font-weight:700;margin-bottom:10px;color:#333">💡 Terminal-Befehle zum Ausprobieren:</div>
-    <div style="font-family:monospace;background:#1e1e1e;color:#4ade80;padding:12px;border-radius:6px;line-height:2">
-      ping 192.168.0.10 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ Server anpingen<br>
-      ping 192.168.0.101 &nbsp;&nbsp;&nbsp;&nbsp;→ Raum101-PC anpingen<br>
-      traceroute 192.168.0.112 → Route durch den Switch<br>
-      nslookup schule.intern &nbsp;→ DNS-Auflösung<br>
-      nslookup intranet.local → Intranet-Hostname<br>
-      ipconfig &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ Eigene Netzwerkdaten
-    </div>
+  <div style="background:#f5f5f5;border-radius:8px;padding:16px;font-size:12px;line-height:1.8">
+    <div style="font-weight:700;margin-bottom:10px;color:#333">Arbeitsauftrag</div>
+    <div>1. Verkabele die Geraete selbst.</div>
+    <div>2. Vergib IP-Adressen und Router-Schnittstellen passend zu den Teilnetzen.</div>
+    <div>3. Setze Gateway und DNS auf den Clients bewusst.</div>
+    <div>4. Installiere und starte Dienste wie Web, DNS, DHCP oder Mail erst dann, wenn du sie brauchst.</div>
   </div>
 </div>`
   };
-
-  // ════════════════════════════════════════════════════════
-  // DNS-EINTRÄGE
-  // ════════════════════════════════════════════════════════
-  dnsEntries['schule.intern']   = '192.168.0.10';
-  dnsEntries['intranet.local']  = '192.168.0.10';
-  dnsEntries['server.lokal']    = '192.168.0.10';
-  dnsEntries['router.lokal']    = '192.168.0.1';
-  dnsEntries['lehrer-pc.lokal'] = '192.168.0.20';
-  dnsRunning    = true;
-  dnsServerNode = srv;
-
-  // DHCP aktiv
-  dhcpRunning    = true;
-  dhcpServerNode = srv;
-  dhcpNext       = 50;
 
   // ════════════════════════════════════════════════════════
   // ALLE NODES RENDERN
   // ════════════════════════════════════════════════════════
   nodes.forEach(n => refreshNode(n));
 
-  // ════════════════════════════════════════════════════════
-  // KABELVERBINDUNGEN
-  // ════════════════════════════════════════════════════════
-  // Internet → Router
-  addCable(modem,  router);
-  // Router → Kern-Switch
-  addCable(router, swKern);
-  // Server → Kern-Switch
-  addCable(srv,    swKern);
-  // Kern-Switch → Bereichs-Switches
-  addCable(swKern, swLehrer);
-  addCable(swKern, sw101);
-  addCable(swKern, sw102);
-  // Lehrerzimmer
-  addCable(swLehrer, pcLehrer);
-  addCable(swLehrer, ltLehrer);
-  addCable(swLehrer, apLehrer);
-  // Raum 101
-  addCable(sw101, pc101a);
-  addCable(sw101, pc101b);
-  addCable(sw101, pc101c);
-  // Raum 102
-  addCable(sw102, pc102a);
-  addCable(sw102, pc102b);
-  addCable(sw102, ap102);
-
-  setMode('sim');
+  setMode('design');
 
   // ════════════════════════════════════════════════════════
   // LOG-AUSGABE
   // ════════════════════════════════════════════════════════
   setTimeout(() => {
     log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
-    log('🏫 Schulnetzwerk geladen — Realschule Helmbrechts', 'success');
+    log('🏫 Schulnetz-Vorlage geladen — Realschule Helmbrechts', 'success');
     log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
     log('', 'sys');
-    log('📌 TOPOLOGIE:', 'info');
-    log('  Internet (10.0.0.1) → Schul-Router (192.168.0.1)', 'sys');
-    log('  Schul-Router → Kern-Switch → 3 Bereichs-Switches', 'sys');
-    log('  Lehrerzimmer: PC + Laptop + WLAN-AP', 'sys');
-    log('  Raum 101: 3x Schüler-PC', 'sys');
-    log('  Raum 102: 2x Schüler-PC + WLAN-AP', 'sys');
+    log('📌 TOPOLOGIE ALS LEER-VORLAGE:', 'info');
+    log('  Geraete sind platziert, aber weder verbunden noch fertig konfiguriert.', 'sys');
+    log('  Router-Schnittstellen, Gateways, DNS und Dienste musst du selbst setzen.', 'sys');
     log('', 'sys');
-    log('✅ DNS-Server läuft (schule.intern, intranet.local)', 'ok');
-    log('✅ DHCP-Server aktiv auf Schul-Server', 'ok');
-    log('✅ Webserver: http://schule.intern', 'ok');
+    log('🛠 Starte im Entwurfsmodus und baue das Netz Schritt fuer Schritt auf.', 'ok');
     log('', 'sys');
     log('💡 AUFGABEN FÜR SCHÜLER:', 'info');
-    log('  1. Doppelklick auf R101-PC-01 → Terminal öffnen', 'sys');
-    log('  2. ping 192.168.0.112         → Raum102-PC anpingen', 'sys');
-    log('  3. traceroute 192.168.0.10    → Route zum Server', 'sys');
-    log('  4. nslookup schule.intern     → DNS-Animation', 'sys');
-    log('  5. Browser → schule.intern    → Intranet öffnen', 'sys');
-    log('  6. ping 10.0.0.1              → Internetverbindung testen', 'sys');
+    log('  1. Kabel setzen', 'sys');
+    log('  2. IPs und Router-Interfaces vergeben', 'sys');
+    log('  3. Gateway, DNS und Dienste einrichten', 'sys');
+    log('  4. Danach mit ping, traceroute, Browser und Mail testen', 'sys');
     log('', 'sys');
-    log('📡 Subnetz: 192.168.0.0/24  ·  Gateway: 192.168.0.1', 'info');
     log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
   }, 100);
 
-  notify('🏫 Schulnetzwerk geladen — Doppelklick auf einen PC zum Starten!', 'success');
+  notify('🏫 Schulnetz-Vorlage geladen — jetzt selbst verkabeln und konfigurieren!', 'success');
 }
 
 // ════════════════════════════════════════════════════════════
