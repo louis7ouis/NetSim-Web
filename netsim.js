@@ -13,6 +13,8 @@ let cableMode = false, deleteMode = false;
 let cableFirst = null, dragNode = null, dragOff = { x: 0, y: 0 };
 let ctxTarget = null, nextId = 1, cmdNode = null;
 let cmdHistory = [], cmdHistIdx = -1;
+let _dtBrowserStates = {}; // nodeId -> { url, html }
+
 
 // Zoom & Pan
 let zoom = 1.0, panX = 0, panY = 0;
@@ -103,6 +105,8 @@ function draw() {
   cx.scale(zoom, zoom);
   cx.translate(panX / zoom, panY / zoom);
 
+  const icR_raw = Math.min(8, 5 / zoom) / zoom;
+
   for (const c of cables) {
     const a = nodes.find(n => n.id === c.a), b = nodes.find(n => n.id === c.b);
     if (!a || !b) continue;
@@ -130,20 +134,23 @@ function draw() {
     });
 
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    const icR = 8 / zoom;
-    cx.save();
-    cx.fillStyle   = bothOn ? '#ffffff' : '#f5f5f5';
-    cx.strokeStyle = bothOn ? 'rgba(37,99,235,.55)' : 'rgba(150,150,150,.4)';
-    cx.lineWidth   = 1.2 / zoom;
-    cx.beginPath(); cx.arc(mx, my, icR, 0, Math.PI * 2); cx.fill(); cx.stroke();
-    cx.fillStyle = bothOn ? 'rgba(37,99,235,.7)' : 'rgba(130,130,130,.5)';
-    const s = 1 / zoom;
-    cx.fillRect(mx - 3*s, my - 2.5*s, 6*s, 4*s);
-    cx.fillStyle = bothOn ? 'rgba(37,99,235,.5)' : 'rgba(130,130,130,.35)';
-    cx.fillRect(mx - 2*s, my + 1.5*s, 1.2*s, 1.5*s);
-    cx.fillRect(mx - 0.5*s, my + 1.5*s, 1.2*s, 1.5*s);
-    cx.fillRect(mx + 1*s, my + 1.5*s, 1.2*s, 1.5*s);
-    cx.restore();
+    const cableLen = Math.hypot(b.x - a.x, b.y - a.y);
+    if (cableLen * zoom > 60) {
+      const icR = Math.min(8, 5 / zoom) / zoom;
+      cx.save();
+      cx.fillStyle   = bothOn ? '#ffffff' : '#f5f5f5';
+      cx.strokeStyle = bothOn ? 'rgba(37,99,235,.55)' : 'rgba(150,150,150,.4)';
+      cx.lineWidth   = 1.2 / zoom;
+      cx.beginPath(); cx.arc(mx, my, icR, 0, Math.PI * 2); cx.fill(); cx.stroke();
+      cx.fillStyle = bothOn ? 'rgba(37,99,235,.7)' : 'rgba(130,130,130,.5)';
+      const s = 1 / zoom;
+      cx.fillRect(mx - 3*s, my - 2.5*s, 6*s, 4*s);
+      cx.fillStyle = bothOn ? 'rgba(37,99,235,.5)' : 'rgba(130,130,130,.35)';
+      cx.fillRect(mx - 2*s, my + 1.5*s, 1.2*s, 1.5*s);
+      cx.fillRect(mx - 0.5*s, my + 1.5*s, 1.2*s, 1.5*s);
+      cx.fillRect(mx + 1*s, my + 1.5*s, 1.2*s, 1.5*s);
+      cx.restore();
+    }
   }
 
   // WLAN-Signalringe für Access Points
@@ -240,9 +247,14 @@ function canvasDrop(e) {
   initTouchDrag();
 })();
 
-// ════════════════════════════════════════════════════════════
-// NODE MANAGEMENT
-// ════════════════════════════════════════════════════════════
+function getUniqueName(type) {
+  const prefix = TYPES[type].prefix;
+  let counter = 1;
+  const existing = new Set(nodes.map(n => n.name));
+  while (existing.has(`${prefix}-${counter}`)) counter++;
+  return `${prefix}-${counter}`;
+}
+
 /**
  * Fügt ein neues Gerät zur Arbeitsfläche hinzu.
  * @param {string} type  - Gerätetyp (pc, laptop, router, ...)
@@ -255,7 +267,7 @@ function addNode(type, x, y) {
   ipCounters[type]++;
   const n = {
     id:   nextId++, type, x, y,
-    name: `${t.prefix}-${nodes.filter(d => d.type === type).length + 1}`,
+    name: getUniqueName(type),
     ip:   '',       // Schüler müssen IP selbst eintragen!
     mask: t.hasIP ? '255.255.255.0' : '',
     gw: '', dns: '',
@@ -429,8 +441,10 @@ function nodeDown(e, n) {
   dragNode = n;
   const area = document.getElementById('canvas-area');
   const rect  = area.getBoundingClientRect();
-  dragOff.x = (e.clientX - rect.left - panX) / zoom - n.x;
-  dragOff.y = (e.clientY - rect.top  - panY) / zoom - n.y;
+  const worldX = (e.clientX - rect.left - panX) / zoom;
+  const worldY = (e.clientY - rect.top  - panY) / zoom;
+  dragOff.x = worldX - n.x;
+  dragOff.y = worldY - n.y;
 }
 
 function cvMouseDown(e) {
@@ -599,7 +613,20 @@ function cfgUpdate(f, v) {
 function cfgDHCP() {
   if (!selNode) return;
   selNode.dhcpEnabled = document.getElementById('cfg-dhcp').checked;
-  if (selNode.dhcpEnabled && dhcpRunning && dhcpServerNode) assignDHCP(selNode);
+  if (selNode.dhcpEnabled) {
+    if (!dhcpRunning || !dhcpServerNode) {
+      notify('⚠ Kein DHCP-Server aktiv — IP wird nicht automatisch vergeben', 'error');
+      log(`${selNode.name}: DHCP aktiviert, aber kein Server läuft`, 'warn');
+      return;
+    }
+    const path = findPath(selNode, dhcpServerNode.ip);
+    if (!path) {
+      notify('⚠ Kein Netzwerkpfad zum DHCP-Server', 'error');
+      log(`${selNode.name}: Kein Pfad zu DHCP-Server ${dhcpServerNode.name}`, 'warn');
+      return;
+    }
+    assignDHCP(selNode);
+  }
 }
 
 function switchTab(t)    { switchCfwTab(t); }
@@ -686,7 +713,8 @@ function openDesktop(n) {
 
   if (!sameNode) {
     _dtLastNodeId   = n.id;
-    _dtBrowserState = { url: '', html: '' };
+    if (!_dtBrowserStates[n.id]) _dtBrowserStates[n.id] = { url: '', html: '' };
+    _dtBrowserState = _dtBrowserStates[n.id];
     const grid   = document.getElementById('dt-apps-grid');
     const noApps = document.getElementById('dt-no-apps');
     grid.innerHTML = '';
@@ -885,10 +913,11 @@ function closeDesktop() {
 function openTerminalFromDesktop() { dtBack(); }
 
 // ══ Terminal-Ausgabe ═════════════════════════════════════════
-function _dtPrint(msg, type = 'cmd') {
+function _dtPrint(msg, type = 'info') {
   const out = document.getElementById('dt-output'); if (!out) return;
   const d = document.createElement('div');
-  d.className = 'dtl ' + type; d.textContent = msg;
+  d.className = 'dtl log-' + type;
+  d.innerHTML = msg; // Allow HTML for bold/colors
   out.appendChild(d); out.scrollTop = out.scrollHeight;
 }
 
@@ -901,7 +930,7 @@ function dtKey(e) {
   if (e.key === 'Enter') {
     const raw = inp.value.trim(); inp.value = '';
     if (!raw || !cmdNode) return;
-    _dtHist.push(raw); _dtHistIdx = -1;
+    _dtHist.push(raw); _dtHistIdx = _dtHist.length;
     _dtPrint(cmdNode.name + '> ' + raw, 'cmd');
     window._dtActive = true; handleCmd(raw); window._dtActive = false;
   } else if (e.key === 'ArrowUp') {
@@ -1034,6 +1063,9 @@ function setMode(m) {
   document.body.classList.toggle('sim-mode', m === 'sim');
   const modeNames = { design: 'Entwurfsmodus', sim: 'Simulationsmodus' };
   document.getElementById('sb-mode').textContent = modeNames[m];
+  if (m === 'sim') {
+    closeAllApps();
+  }
   if (cableMode && m !== 'design') toggleCable();
   if (deleteMode && m !== 'design') toggleDelete();
   log(modeNames[m] + ' aktiviert', 'info');
@@ -1107,11 +1139,11 @@ function findPath(src, dstIP) {
   }
 
   if (!src.gw) return null;
-  const gwNode = nodes.find(n =>
-    n.on &&
-    n.type === 'router' &&
-    Object.values(n.interfaces || {}).some(iface => iface.ip === src.gw)
-  );
+  const gwNode = nodes.find(n => {
+    if (!n.on || n.type !== 'router') return false;
+    if (!n.interfaces) n.interfaces = {};
+    return Object.values(n.interfaces).some(iface => iface.ip === src.gw);
+  });
   if (!gwNode) return null;
 
   const gwIface = Object.values(gwNode.interfaces || {}).find(iface => iface.ip === src.gw);
@@ -1121,7 +1153,7 @@ function findPath(src, dstIP) {
   if (!pathToGw) return null;
 
   const targetIface = Object.values(gwNode.interfaces || {}).find(iface =>
-    iface.ip && dst.ip && sameSubnet(iface.ip, dst.ip, iface.mask || '255.255.255.0')
+    iface && iface.ip && dst.ip && sameSubnet(iface.ip, dst.ip, iface.mask || '255.255.255.0')
   );
   if (!targetIface) return null;
 
@@ -1933,7 +1965,7 @@ function emailClientSend() {
 // ════════════════════════════════════════════════════════════
 // BROWSER FENSTER (eigenständig)
 // ════════════════════════════════════════════════════════════
-function browserGo() {
+async function browserGo() {
   const url  = document.getElementById('browser-url').value.trim();
   if (!url) return;
   const view = document.getElementById('browser-view');
@@ -1944,6 +1976,11 @@ function browserGo() {
   if (needsDNS) {
     const configuredDns = getConfiguredDnsServer(appWindowNode);
     if (!configuredDns || !dnsRunning || dnsServerNode?.id !== configuredDns.id) {
+      // Automatischer Internet-Fallback wenn DNS lokal nicht existiert
+      const isRealURL = url.startsWith('http://') || url.startsWith('https://');
+      if (isRealURL) {
+        return await handleInternetAccess(url, view);
+      }
       view.innerHTML = `<div style="padding:20px;color:#c0392b;font-family:sans-serif">
         <b>DNS nicht konfiguriert</b><br><br>
         Dieses Gerät hat keinen passenden DNS-Server eingetragen oder der DNS-Dienst läuft nicht.<br><br>
@@ -1957,6 +1994,10 @@ function browserGo() {
       const dn = nodes.find(x => x.name.toLowerCase() === lower);
       if (dn) targetIP = dn.ip;
       else {
+        const isRealURL = url.startsWith('http://') || url.startsWith('https://');
+        if (isRealURL) {
+          return await handleInternetAccess(url, view);
+        }
         view.innerHTML = `<div style="padding:20px;color:#c0392b;font-family:sans-serif">
           <b>DNS-Fehler</b><br><br>
           Der Hostname <b>${host}</b> konnte nicht gefunden werden.<br><br>
@@ -1967,8 +2008,15 @@ function browserGo() {
     }
   }
 
-  const serverNode = nodes.find(x => x.ip === targetIP);
-  if (!serverNode || !serverNode.on) {
+  const serverNode = nodes.some(n => n.ip === targetIP);
+  const isRealURL = url.startsWith('http://') || url.startsWith('https://');
+
+  if (!serverNode && isRealURL) {
+    return await handleInternetAccess(url, view);
+  }
+
+  const targetNode = nodes.find(x => x.ip === targetIP);
+  if (!targetNode || !targetNode.on) {
     view.innerHTML = `<div style="padding:20px;color:#c0392b;font-family:sans-serif">
       <b>Verbindung fehlgeschlagen</b><br><br>
       Kein Gerät mit der IP <b>${targetIP}</b> erreichbar oder Gerät ausgeschaltet.
@@ -1989,11 +2037,11 @@ function browserGo() {
     }
   }
 
-  const ws = wsNodes[serverNode.id];
-  if (!serverNode.installedApps.includes('webserver')) {
+  const ws = wsNodes[targetNode.id];
+  if (!targetNode.installedApps.includes('webserver')) {
     view.innerHTML = `<div style="padding:20px;color:#c0392b;font-family:sans-serif">
       <b>Fehler 404</b><br><br>
-      Auf <b>${serverNode.name}</b> (${targetIP}) ist kein Webserver installiert.<br><br>
+      Auf <b>${targetNode.name}</b> (${targetIP}) ist kein Webserver installiert.<br><br>
       <small>💡 Tipp: Server auswählen → Reiter "Apps" → Webserver installieren → öffnen → starten.</small>
     </div>`;
     return;
@@ -2001,7 +2049,7 @@ function browserGo() {
   if (!ws || !ws.running) {
     view.innerHTML = `<div style="padding:20px;color:#e67e22;font-family:sans-serif">
       <b>Verbindung abgelehnt</b><br><br>
-      Der Webserver auf <b>${serverNode.name}</b> ist nicht gestartet.<br><br>
+      Der Webserver auf <b>${targetNode.name}</b> ist nicht gestartet.<br><br>
       <small>💡 Tipp: Doppelklick auf Server im Simulationsmodus → App "Webserver" öffnen → "Server starten" klicken.</small>
     </div>`;
     return;
@@ -2012,17 +2060,16 @@ function browserGo() {
       const path = findPath(browsingNode, targetIP);
       if (path) animatePkt(path, '#2563eb');
     }
-    log(`HTTP GET ${url} → ${serverNode.name}`, 'packet');
+    log(`HTTP GET ${url} → ${targetNode.name}`, 'packet');
     const pageContent = ws.content || '<h1>Willkommen!</h1><p>Standardseite.</p>';
     view.innerHTML = `<div style="padding:0;width:100%;height:100%;background:#fff;overflow:auto">
       <div style="background:#e8f0fe;padding:6px 10px;font-size:10px;color:#4285f4;font-weight:700;border-bottom:1px solid #d2e3fc">
-        🔒 http://${host} — ${serverNode.name} (${targetIP})
+        🔒 http://${host} — ${targetNode.name} (${targetIP})
       </div>
       <div style="padding:12px;font-family:Arial,sans-serif">${pageContent}</div>
     </div>`;
   };
 
-  // DNS-Animation vor HTTP wenn Hostname per DNS aufgelöst
   if (needsDNS && dnsRunning && dnsServerNode && browsingNode) {
     log(`DNS ${browsingNode.name}: ${host} → ${targetIP}`, 'packet');
     animateDNS(browsingNode, doHTTP);
@@ -2031,13 +2078,61 @@ function browserGo() {
   }
 }
 
+async function handleInternetAccess(url, view) {
+  view.innerHTML = `<div style="padding:14px;color:#666;font-family:Arial">🌐 Lade ${url}…</div>`;
+  const proxies = [
+    'https://corsproxy.io/?' + encodeURIComponent(url),
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
+  ];
+  
+  let loaded = false;
+  for (const proxyUrl of proxies) {
+    try {
+      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+      if (!resp.ok) continue;
+      const html = await resp.text();
+      const base = new URL(url);
+      const withBase = html.replace(/<head>/i, `<head><base href="${base.origin}/">`);
+      view.innerHTML = `
+        <div style="background:#e8f0fe;padding:6px 10px;font-size:10px;color:#2563eb;font-weight:700;border-bottom:1px solid #d2e3fc;display:flex;align-items:center;gap:8px">
+          🌐 <span>Echtes Internet: ${url}</span>
+          <span style="margin-left:auto;font-size:9px;opacity:.7">via CORS-Proxy</span>
+        </div>
+        <iframe 
+          sandbox="allow-scripts allow-same-origin allow-forms" 
+          style="width:100%;height:calc(100% - 30px);border:none"
+          srcdoc="${withBase.replace(/"/g, '&quot;')}">
+        </iframe>`;
+      log(`Browser: ${url} geladen (Internet)`, 'packet');
+      notify('🌐 Echte Website geladen', 'success');
+      loaded = true;
+      if (desktopNode && _dtBrowserStates[desktopNode.id]) {
+        _dtBrowserStates[desktopNode.id] = { url: url, html: view.innerHTML };
+      }
+      break;
+    } catch(e) { continue; }
+  }
+  
+  if (!loaded) {
+    view.innerHTML = `<div style="padding:20px;font-family:Arial">
+      <b>🔴 Verbindung fehlgeschlagen</b><br><br>
+      Die Website <b>${url}</b> konnte nicht geladen werden.<br><br>
+      <small>Mögliche Ursachen: Kein Internet, Website blockiert CORS, Timeout.</small>
+    </div>`;
+  }
+}
+
 // Desktop-interner Browser
-function dtBrowserGo() {
+async function dtBrowserGo() {
   const urlInput = document.getElementById('dt-browser-url');
   const view     = document.getElementById('dt-browser-view');
   if (!urlInput || !view) return;
   const url = urlInput.value.trim(); if (!url) return;
-  _dtBrowserState.url = url;
+  
+  if (desktopNode) {
+    if (!_dtBrowserStates[desktopNode.id]) _dtBrowserStates[desktopNode.id] = { url: '', html: '' };
+    _dtBrowserStates[desktopNode.id].url = url;
+  }
 
   const err = (icon, title, msg, tip) => {
     const html = `<div style="padding:24px 20px;font-family:Arial,sans-serif">
@@ -2046,7 +2141,8 @@ function dtBrowserGo() {
       <p style="margin:10px 0 0;color:#444;font-size:13px">${msg}</p>
       <div style="margin-top:12px;font-size:12px;background:#f8f9fa;border-left:3px solid #ccc;padding:8px 12px;border-radius:4px;color:#555">${tip}</div>
     </div>`;
-    view.innerHTML = html; _dtBrowserState.html = html;
+    view.innerHTML = html; 
+    if (desktopNode && _dtBrowserStates[desktopNode.id]) _dtBrowserStates[desktopNode.id].html = html;
   };
 
   let host     = url.replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
@@ -2056,6 +2152,11 @@ function dtBrowserGo() {
   if (needsDNS) {
     const configuredDns = getConfiguredDnsServer(appWindowNode);
     if (!configuredDns || !dnsRunning || dnsServerNode?.id !== configuredDns.id) {
+      const isRealURL = url.startsWith('http://') || url.startsWith('https://');
+      if (isRealURL) {
+        await handleInternetAccess(url, view);
+        return;
+      }
       return err('🔴', 'DNS nicht konfiguriert', 'Dieses Geraet hat keinen passenden DNS-Server eingetragen oder der Dienst laeuft nicht.',
         '💡 Trage im Client eine DNS-IP ein und starte den DNS-Server auf dem Server.');
     }
@@ -2064,9 +2165,24 @@ function dtBrowserGo() {
     else {
       const dn = nodes.find(x => x.name.toLowerCase() === lower);
       if (dn) targetIP = dn.ip;
-      else return err('🔴', 'DNS-Fehler', `Hostname <b>${host}</b> konnte nicht aufgelöst werden.`,
-        `💡 DNS-Server auf einem Server installieren, Eintrag für <b>${host}</b> anlegen und im PC als DNS-Server eintragen.`);
+      else {
+        const isRealURL = url.startsWith('http://') || url.startsWith('https://');
+        if (isRealURL) {
+          await handleInternetAccess(url, view);
+          return;
+        }
+        return err('🔴', 'DNS-Fehler', `Hostname <b>${host}</b> konnte nicht aufgelöst werden.`,
+          `💡 DNS-Server auf einem Server installieren, Eintrag für <b>${host}</b> anlegen und im PC als DNS-Server eintragen.`);
+      }
     }
+  }
+
+  const isLocalIP = nodes.some(n => n.ip === targetIP);
+  const isRealURL = url.startsWith('http://') || url.startsWith('https://');
+
+  if (!isLocalIP && isRealURL) {
+    await handleInternetAccess(url, view);
+    return;
   }
 
   const serverNode = nodes.find(x => x.ip === targetIP);
@@ -2098,23 +2214,22 @@ function dtBrowserGo() {
     log(`HTTP GET ${url} → ${serverNode.name}`, 'packet');
     const pageContent = ws.content || '<h1>Willkommen!</h1><p>Standardseite.</p>';
     const html = `<div style="display:flex;flex-direction:column;height:100%">
-      <div style="background:#e8f0fe;padding:6px 10px;font-size:10px;color:#4285f4;font-weight:700;border-bottom:1px solid #d2e3fc;flex-shrink:0">
+      <div style="background:#e8f0fe;padding:6px 10px;font-size:10px;color:#4285f4;font-weight:700;border-bottom:1px solid #d2e3fc">
         🔒 http://${host} — ${serverNode.name} (${targetIP})
       </div>
-      <div style="flex:1;overflow-y:auto;padding:14px;font-family:Arial,sans-serif">${pageContent}</div>
+      <div style="padding:12px;font-family:Arial,sans-serif;flex:1;background:#fff;overflow:auto">${pageContent}</div>
     </div>`;
     view.innerHTML = html;
-    _dtBrowserState.html = html;
+    if (desktopNode && _dtBrowserStates[desktopNode.id]) _dtBrowserStates[desktopNode.id].html = html;
   };
 
-  // DNS-Animation vor HTTP wenn Hostname per DNS aufgelöst wurde
   if (needsDNS && dnsRunning && dnsServerNode && browsingNode) {
-    log(`DNS ${browsingNode.name}: ${host} → ${targetIP}`, 'packet');
     animateDNS(browsingNode, doHTTP);
   } else {
     doHTTP();
   }
 }
+
 
 // ════════════════════════════════════════════════════════════
 // KONTEXT-MENÜ
@@ -2191,7 +2306,7 @@ function saveNet() {
     dhcpServerNodeId: dhcpServerNode?.id || null,
     dnsRunning,
     dnsServerNodeId: dnsServerNode?.id || null,
-    version: '4'
+    version: '5'
   });
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(JSON.stringify({ action: 'save', payload: data }));
@@ -2232,9 +2347,19 @@ function loadDataObj(jsonString) {
       const a = nodes.find(n => n.id === idMap[c.a]), b = nodes.find(n => n.id === idMap[c.b]);
       if (a && b) addCable(a, b);
     });
-    wsNodes = data.wsNodes || {};
-    mailServers = data.mailServers || {};
-    mailClients = data.mailClients || {};
+    
+    const remapObj = (obj) => {
+      const result = {};
+      Object.entries(obj || {}).forEach(([oldId, val]) => {
+        const newId = idMap[parseInt(oldId)];
+        if (newId !== undefined) result[newId] = val;
+      });
+      return result;
+    };
+    wsNodes      = remapObj(data.wsNodes);
+    mailServers  = remapObj(data.mailServers);
+    mailClients  = remapObj(data.mailClients);
+
     dhcpRunning = !!data.dhcpRunning;
     dnsRunning = !!data.dnsRunning;
     dhcpServerNode = nodes.find(n => n.id === idMap[data.dhcpServerNodeId]) || null;
