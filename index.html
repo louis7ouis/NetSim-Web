@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetSim — Netzwerk Simulator für Schulen</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <title>Netzwerksimulation</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,46 +11,26 @@
     <!-- TOPBAR -->
     <div id="topbar">
         <div class="logo">
-            <div class="logo-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M1 12h6m6 0h6"/>
-                </svg>
-            </div>
             <div>
-                <div class="logo-text">NetSim</div>
-                <div class="logo-sub">V1.2 — FILIUS Edition</div>
+                <div class="logo-text">Netzwerksimulation</div>
+                <div class="logo-sub">Arbeitsbereich</div>
             </div>
         </div>
         
         <div class="tb-group">
-            <button class="tb-btn" id="btn-delete" onclick="toggleDelete()">🗑️ Löschen</button>
+            <button class="tb-btn" id="btn-delete" onclick="toggleDelete()">Löschen</button>
         </div>
         <div class="tb-divider"></div>
         <div class="tb-group">
-            <button class="tb-btn" onclick="saveNet()">💾 Speichern</button>
-            <button class="tb-btn" onclick="loadNet()">📂 Laden</button>
-            <button class="tb-btn" onclick="loadExample()">🗂️ Beispiel</button>
-            <button class="tb-btn" onclick="clearAll()">🔄 Reset</button>
-        </div>
-        <div class="tb-divider"></div>
-        <div class="tb-group">
-            <button class="tb-btn" onclick="toggleSubnetCalc()">🧮 Subnetz</button>
-            <button class="tb-btn" onclick="showHelp()">❓ Hilfe</button>
+            <button class="tb-btn" onclick="saveNet()">Speichern</button>
+            <button class="tb-btn" onclick="loadNet()">Laden</button>
+            <button class="tb-btn" onclick="clearAll()">Zurücksetzen</button>
         </div>
         
         <div class="mode-switch" style="margin-left: auto;">
-            <div class="mode-opt active" id="mo-design" onclick="setMode('design')">✏ Entwurf</div>
-            <div class="mode-opt" id="mo-sim" onclick="setMode('sim')">▶ Simulation</div>
+            <div class="mode-opt active" id="mo-design" onclick="setMode('design')">Entwurf</div>
+            <div class="mode-opt" id="mo-sim" onclick="setMode('sim')">Simulation</div>
         </div>
-        
-        <button class="theme-toggle" onclick="toggleTheme()" title="Design wechseln">
-            <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-            </svg>
-            <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-        </button>
     </div>
     
     <!-- MAIN AREA -->
@@ -229,33 +206,23 @@
                 <div id="device-layer"></div>
             </div>
             <div id="empty-state">
-                <div class="es-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-                    </svg>
-                </div>
-                <h3>Willkommen bei NetSim!</h3>
-                <p>👈 Ziehe Geräte aus der Seitenleiste hierher<br>🔗 Verbinde sie mit dem Kabel-Werkzeug (C)<br>⚙️ Klicke auf ein Gerät um es zu konfigurieren<br>▶️ Wechsle zur Simulation und teste mit <b>ping</b></p>
+                <h3>Leere Arbeitsfläche</h3>
+                <p>Geräte links auswählen, auf die Fläche ziehen und anschließend verkabeln.</p>
             </div>
-            <div id="packet-path" class="packet-path">
-                <div class="pp-header">📡 Paketweg</div>
-                <div class="pp-route" id="pp-route"></div>
-            </div>
-            <div id="zoom-indicator">100%</div>
         </div>
     </div>
     
     <!-- STATUSBAR -->
-    <div id="statusbar">
-        <div class="sb-item">📦 <span id="sb-nodes">0</span> Geräte</div>
+<div id="statusbar">
+        <div class="sb-item"><span id="sb-nodes">0</span> Geräte</div>
         <div class="sep"></div>
-        <div class="sb-item">🔗 <span id="sb-cables">0</span> Kabel</div>
+        <div class="sb-item"><span id="sb-cables">0</span> Kabel</div>
         <div id="sb-sel" style="display:none;" class="sb-item">
           <span style="color:var(--muted)">▸</span>
           <span id="sb-selname" style="color:var(--accent);font-weight:700;font-size:11.5px"></span>
         </div>
         <div class="sb-right">
-            <span id="sb-mode">✏ Entwurfsmodus</span>
+            <span id="sb-mode">Entwurfsmodus</span>
             <span class="sep"></span>
             <span class="sb-key">C</span> Kabel
             <span class="sb-key">D</span> Löschen
@@ -277,9 +244,9 @@
         <div class="cfw-type" id="cfw-type">PC</div>
     </div>
     <div class="cfw-tabs">
-        <div class="cfw-tab active" onclick="switchTab('cfg')">⚙️ Konfig</div>
-        <div class="cfw-tab" onclick="switchTab('apps')">📦 Apps</div>
-        <div class="cfw-tab" onclick="switchTab('log')">📋 Log</div>
+        <div class="cfw-tab active" onclick="switchTab('cfg')">Konfiguration</div>
+        <div class="cfw-tab" onclick="switchTab('apps')">Programme</div>
+        <div class="cfw-tab" onclick="switchTab('log')">Protokoll</div>
     </div>
     
     <div id="ctab-content-cfg" class="cfw-tabcontent active">
@@ -331,10 +298,10 @@
                 <span id="pwr-label">Ausschalten</span>
             </button>
             <button class="rp-btn primary" onclick="openTerminal()" id="btn-open-desktop">
-                🖥️ Desktop öffnen
+                Desktop öffnen
             </button>
             <button class="rp-btn danger" onclick="deleteSelected()">
-                🗑️ Gerät entfernen
+                Gerät entfernen
             </button>
         </div>
     </div>
@@ -402,7 +369,7 @@
             <label>index.html — Inhalt</label>
             <textarea id="webserver-content" class="aw-input" rows="8"><html><head><title>Meine Webseite</title></head><body><h1>Willkommen!</h1><p>Dies ist meine Webseite.</p></body></html></textarea>
         </div>
-        <button class="aw-btn ok" onclick="webserverSave()">💾 Speichern</button>
+        <button class="aw-btn ok" onclick="webserverSave()">Speichern</button>
         <button class="aw-btn ok" id="ws-start-btn" onclick="webserverToggle()">▶ Server starten</button>
         <div id="ws-status" style="margin-top:8px;font-size:11px;color:var(--green);"></div>
     </div>
@@ -555,40 +522,6 @@
                 <div id="dt-app-panel" style="display:none;"></div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- SUBNET CALCULATOR -->
-<div id="subnet-panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div style="font-size:13px;font-weight:800;color:var(--text);">🧮 Subnetz-Rechner</div>
-        <button onclick="toggleSubnetCalc()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;">×</button>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <input type="text" id="sn-ip" class="rp-input" placeholder="192.168.1.0" style="flex:1;">
-        <input type="text" id="sn-prefix" class="rp-input" placeholder="/24" style="width:70px;">
-    </div>
-    <button class="rp-btn primary" onclick="calcSubnet()" style="margin-bottom:12px;">Berechnen</button>
-    <div id="sn-result" style="font-size:11px;color:var(--dim);line-height:1.8;">
-        IP und Präfixlänge eingeben…
-    </div>
-</div>
-
-<!-- HELP PANEL -->
-<div id="help-panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div style="font-size:14px;font-weight:800;color:var(--text);">❓ Tastenkürzel & Hilfe</div>
-        <button onclick="showHelp()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;">×</button>
-    </div>
-    <div class="help-grid">
-        <div class="help-item"><div class="help-key">C</div><div class="help-desc">Kabel-Modus</div></div>
-        <div class="help-item"><div class="help-key">D</div><div class="help-desc">Löschen-Modus</div></div>
-        <div class="help-item"><div class="help-key">Leertaste</div><div class="help-desc">Modus wechseln</div></div>
-        <div class="help-item"><div class="help-key">Entf</div><div class="help-desc">Gerät löschen</div></div>
-        <div class="help-item"><div class="help-key">Esc</div><div class="help-desc">Abbrechen</div></div>
-        <div class="help-item"><div class="help-key">Strg+S</div><div class="help-desc">Speichern</div></div>
-        <div class="help-item"><div class="help-key">Doppelklick</div><div class="help-desc">Desktop öffnen (Sim)</div></div>
-        <div class="help-item"><div class="help-key">Rechtsklick</div><div class="help-desc">Kontextmenü</div></div>
     </div>
 </div>
 
