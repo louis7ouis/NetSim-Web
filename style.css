@@ -2533,3 +2533,330 @@ body.dark .dt-app-btn[data-app="terminal"]:hover {
 body.dark .dt-app-btn[data-app="terminal"] .dt-app-nm {
   color: rgba(74,222,128,.88);
 }
+
+/* Filius-naehere, reduzierte Oberflaeche */
+:root {
+  --bg: #dfe6ef;
+  --surface: #f2f2f2;
+  --surface2: #ececec;
+  --panel: #e4e4e4;
+  --panel2: #d8d8d8;
+  --glass: rgba(255,255,255,.92);
+  --glass-border: rgba(0,0,0,.10);
+  --border: #a8a8a8;
+  --border2: #8d8d8d;
+  --border3: #727272;
+  --accent: #2c5f96;
+  --accent2: #3f73ab;
+  --accentLight: rgba(44,95,150,.16);
+  --accentDim: rgba(44,95,150,.08);
+  --accentGlow: rgba(44,95,150,.12);
+  --green: #2f6f2f;
+  --greenLight: rgba(47,111,47,.10);
+  --greenBorder: rgba(47,111,47,.22);
+  --red: #a3362b;
+  --redLight: rgba(163,54,43,.10);
+  --yellow: #8d6f1d;
+  --orange: #9b6127;
+  --cyan: #2f6f7a;
+  --purple: #6e5a80;
+  --text: #1f2328;
+  --text2: #353b42;
+  --dim: #565f69;
+  --muted: #707882;
+  --shadow: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --radius: 6px;
+  --gradient-accent: none;
+  --gradient-header: linear-gradient(180deg, #d7d7d7 0%, #c7c7c7 100%);
+  --topbar-bg: #d7d7d7;
+  --sidebar-bg: #ececec;
+  --canvas-dot: rgba(0,0,0,.08);
+  --node-shadow: rgba(0,0,0,.10);
+}
+
+html,
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #dfe6ef;
+}
+
+.dn-ip,
+.rp-input,
+.aw-input,
+.browser-url,
+#cmd-output,
+#cmd-input,
+.cmd-prompt,
+.cmd-footer kbd,
+.log-line {
+  font-family: "Courier New", monospace;
+}
+
+#topbar,
+#sidebar,
+#statusbar,
+#cfg-window,
+#cmd-window,
+.app-window,
+#dt-win {
+  box-shadow: none;
+}
+
+#topbar {
+  height: 44px;
+  padding: 0 10px;
+  gap: 0;
+  background: linear-gradient(180deg, #d9d9d9 0%, #c9c9c9 100%);
+  border-bottom: 1px solid #8f8f8f;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.logo {
+  gap: 0;
+  padding-right: 12px;
+  margin-right: 10px;
+}
+
+.logo-icon {
+  display: none;
+}
+
+.logo-text {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.logo-sub {
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-top: 1px;
+}
+
+.tb-btn,
+.mode-opt,
+.rp-btn,
+.aw-btn,
+.browser-go,
+.dt-back-btn,
+.dt-cls-btn {
+  border-radius: 4px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  box-shadow: none;
+  transform: none !important;
+}
+
+.tb-btn {
+  padding: 5px 10px;
+  border: 1px solid transparent;
+}
+
+.tb-btn:hover,
+.mode-opt:not(.active):hover,
+.rp-btn:hover,
+.aw-btn:hover,
+.browser-go:hover {
+  box-shadow: none;
+}
+
+.mode-switch {
+  background: #dddddd;
+  border: 1px solid #9a9a9a;
+  border-radius: 4px;
+  padding: 2px;
+  box-shadow: none;
+}
+
+.mode-opt {
+  border-radius: 3px;
+  padding: 5px 14px;
+  letter-spacing: 0;
+}
+
+.mode-opt.active {
+  background: #f3f3f3;
+  color: #1f2328;
+  border: 1px solid #9a9a9a;
+}
+
+#sidebar {
+  width: 108px;
+  padding: 8px 5px 10px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.sb-label {
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 4px 8px;
+}
+
+.pal-item,
+.sb-tool {
+  border-radius: 4px;
+  border: 1px solid transparent;
+  padding: 7px 4px 6px;
+}
+
+.pal-item:hover,
+.sb-tool:hover {
+  background: #e7edf5;
+  border-color: #9bb1c8;
+  box-shadow: none;
+}
+
+.pal-item .pi-icon,
+.sb-tool .sb-tool-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  background: #f7f7f7;
+  border: 1px solid #a8a8a8;
+  box-shadow: none;
+}
+
+.pal-item:hover .pi-icon {
+  transform: none;
+  box-shadow: none;
+}
+
+.pal-item .pi-name,
+.sb-tool .pi-name {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+#canvas-area {
+  background-size: 18px 18px;
+}
+
+#empty-state {
+  border-radius: 4px;
+  background: rgba(255,255,255,.8);
+  border: 1px solid #b9c0c8;
+  box-shadow: none;
+}
+
+#empty-state .es-icon {
+  display: none;
+}
+
+#empty-state h3 {
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+#statusbar {
+  height: 28px;
+  background: linear-gradient(180deg, #d8d8d8 0%, #c8c8c8 100%);
+  border-top: 1px solid #9a9a9a;
+}
+
+#statusbar .sb-key {
+  border-radius: 3px;
+  background: #f4f4f4;
+}
+
+.dn-body,
+.dn-name,
+#cfg-window,
+#cmd-window,
+.app-window,
+#dt-win,
+.aw-input,
+.rp-input,
+.browser-url,
+.dns-table,
+.dhcp-range,
+.app-item,
+.app-icon {
+  border-radius: 4px;
+}
+
+.dn-body {
+  box-shadow: none;
+}
+
+.dn-name {
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+#cfg-window,
+#cmd-window,
+.app-window,
+#dt-win {
+  border: 1px solid #8f8f8f;
+}
+
+.cfw-titlebar,
+.cmd-titlebar,
+.aw-title,
+#dt-titlebar {
+  background: linear-gradient(180deg, #dadada 0%, #c8c8c8 100%);
+  border-bottom: 1px solid #9c9c9c;
+}
+
+.cfw-name,
+.cmd-title-name,
+.aw-title-text {
+  color: #1f2328;
+}
+
+.cfw-type,
+.cmd-title-ip,
+.cmd-badge-term {
+  background: #ececec;
+  color: #4d5560;
+  border: 1px solid #b6b6b6;
+}
+
+.cfw-tab {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+}
+
+.cfw-tab.active {
+  background: #f7f7f7;
+}
+
+.rp-label {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.app-item {
+  padding: 9px 10px;
+}
+
+.app-item.installed {
+  background: #e7f0e7;
+}
+
+.app-icon,
+.dt-app-em {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+
+.dt-app-btn {
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.dt-app-em {
+  font-size: 11px;
+}
+
+#dt-right-hdr,
+#dt-apps-col {
+  border-color: #b5b5b5;
+}
