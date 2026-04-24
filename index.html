@@ -317,7 +317,7 @@
     <div id="ctab-content-log" class="cfw-tabcontent">
         <div class="rp-section">
             <div class="rp-label">Ereignisprotokoll</div>
-            <button class="rp-btn ghost" onclick="clearLog()" style="margin-bottom:8px;">🗑️ Löschen</button>
+            <button class="rp-btn ghost" onclick="clearLog()" style="margin-bottom:8px;">Löschen</button>
             <div id="event-log"></div>
         </div>
     </div>
@@ -362,7 +362,7 @@
             <div class="aw-dot y"></div>
             <div class="aw-dot g"></div>
         </div>
-        <span class="aw-title-text">🖥 Webserver</span>
+        <span class="aw-title-text">Webserver</span>
     </div>
     <div class="aw-body">
         <div class="aw-field">
@@ -370,7 +370,7 @@
             <textarea id="webserver-content" class="aw-input" rows="8"><html><head><title>Meine Webseite</title></head><body><h1>Willkommen!</h1><p>Dies ist meine Webseite.</p></body></html></textarea>
         </div>
         <button class="aw-btn ok" onclick="webserverSave()">Speichern</button>
-        <button class="aw-btn ok" id="ws-start-btn" onclick="webserverToggle()">▶ Server starten</button>
+        <button class="aw-btn ok" id="ws-start-btn" onclick="webserverToggle()">Server starten</button>
         <div id="ws-status" style="margin-top:8px;font-size:11px;color:var(--green);"></div>
     </div>
 </div>
@@ -382,7 +382,7 @@
             <div class="aw-dot y"></div>
             <div class="aw-dot g"></div>
         </div>
-        <span class="aw-title-text">🔖 DNS-Server</span>
+        <span class="aw-title-text">DNS-Server</span>
     </div>
     <div class="aw-body">
         <div class="aw-field">
@@ -398,7 +398,7 @@
             <input type="text" id="dns-ip-in" class="aw-input" placeholder="192.168.1.100">
         </div>
         <button class="aw-btn ok" onclick="dnsAdd()">+ Hinzufügen</button>
-        <button class="aw-btn ok" id="dns-start-btn" onclick="dnsServerToggle()">▶ DNS-Server starten</button>
+        <button class="aw-btn ok" id="dns-start-btn" onclick="dnsServerToggle()">DNS-Server starten</button>
         <div id="dns-status" style="margin-top:8px;font-size:11px;color:var(--green);"></div>
     </div>
 </div>
@@ -410,7 +410,7 @@
             <div class="aw-dot y"></div>
             <div class="aw-dot g"></div>
         </div>
-        <span class="aw-title-text">⚡ DHCP-Server</span>
+        <span class="aw-title-text">DHCP-Server</span>
     </div>
     <div class="aw-body">
         <div class="aw-field">
@@ -428,7 +428,7 @@
             <label>DNS-Server</label>
             <input type="text" id="dhcp-dns-out" class="aw-input" placeholder="8.8.8.8">
         </div>
-        <button class="aw-btn ok" id="dhcp-start-btn" onclick="dhcpToggle()">▶ DHCP-Server starten</button>
+        <button class="aw-btn ok" id="dhcp-start-btn" onclick="dhcpToggle()">DHCP-Server starten</button>
         <div id="dhcp-status" class="dhcp-range" style="display:none;"></div>
     </div>
 </div>
@@ -440,17 +440,17 @@
             <div class="aw-dot y"></div>
             <div class="aw-dot g"></div>
         </div>
-        <span class="aw-title-text">🌐 Webbrowser</span>
+        <span class="aw-title-text">Webbrowser</span>
     </div>
     <div class="browser-bar">
         <input type="text" id="browser-url" class="browser-url" placeholder="http://192.168.1.1 oder Hostname">
         <button class="browser-go" onclick="browserGo()">Öffnen</button>
     </div>
     <div id="browser-view" class="browser-viewport">
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#94a3b8;">
-            <div style="font-size:42px;">🌐</div>
-            <div style="font-size:13px;">IP-Adresse oder Hostname eingeben</div>
-        </div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#94a3b8;">
+                <div style="font-size:24px;font-weight:700;letter-spacing:.1em;">WWW</div>
+                <div style="font-size:13px;">IP-Adresse oder Hostname eingeben</div>
+            </div>
     </div>
 </div>
 
@@ -486,14 +486,14 @@
                 </div>
                 <div id="dt-apps-grid"></div>
                 <div id="dt-no-apps">
-                    <div class="dt-noapp-icon">📦</div>
+                    <div class="dt-noapp-icon">APP</div>
                     <div class="dt-noapp-t">Keine Apps</div>
                     <div class="dt-noapp-s">Installiere Apps im Konfig-Fenster</div>
                 </div>
             </div>
             <div id="dt-right-col">
                 <div id="dt-right-hdr">
-                    <span class="dt-hdr-icon">💻</span>
+                    <span class="dt-hdr-icon">TERM</span>
                     <span id="dt-right-label">Terminal</span>
                     <button class="dt-back-btn" id="dt-back-btn" onclick="dtBack()">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
