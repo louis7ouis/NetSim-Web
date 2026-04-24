@@ -1,13 +1,4 @@
 // @ts-nocheck
-// ════════════════════════════════════════════════════════════
-// NETSIM — FILIUS-CORE IMPLEMENTIERUNG
-// Implementiert: 8 Gerätetypen · Terminal (ping, traceroute,
-//   ipconfig, arp, nslookup, help, clear) · Webserver · Browser
-//   · DNS-Server · DHCP-Server · Kabelverbindungen · Zoom/Pan
-//   · Paketanimationen (ICMP, HTTP) · Save/Load JSON
-//   · IP-Konfiguration manuell · DHCP-Client · Subnetz-Rechner
-//   · Entwurf/Simulation Modus · Light/Dark Mode
-// ════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════
 // CORE STATE
@@ -66,12 +57,12 @@ const APPS = {
 };
 
 const APP_META = {
-  webbrowser: { name: 'Webbrowser',  icon: '🌐', desc: 'HTTP-Seiten aufrufen' },
-  webserver:  { name: 'Webserver',   icon: '🖥',  desc: 'HTTP-Server betreiben' },
-  dnsserver:  { name: 'DNS-Server',  icon: '🔖', desc: 'Hostnamen auflösen' },
-  dhcpserver: { name: 'DHCP-Server', icon: '⚡', desc: 'IPs automatisch vergeben' },
-  mailserver: { name: 'E-Mail-Server', icon: '✉️', desc: 'Postfächer und Mail-Domain verwalten' },
-  emailclient:{ name: 'E-Mail', icon: '📨', desc: 'E-Mails senden und abrufen' },
+  webbrowser: { name: 'Webbrowser',  icon: 'WWW',  desc: 'HTTP-Seiten aufrufen' },
+  webserver:  { name: 'Webserver',   icon: 'HTTP', desc: 'HTTP-Server betreiben' },
+  dnsserver:  { name: 'DNS-Server',  icon: 'DNS',  desc: 'Hostnamen auflösen' },
+  dhcpserver: { name: 'DHCP-Server', icon: 'DHCP', desc: 'IPs automatisch vergeben' },
+  mailserver: { name: 'E-Mail-Server', icon: 'MAIL', desc: 'Postfächer und Mail-Domain verwalten' },
+  emailclient:{ name: 'E-Mail', icon: 'MAIL', desc: 'E-Mails senden und abrufen' },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -104,14 +95,7 @@ function screenToWorld(sx, sy) {
   return { x: (sx - rect.left - panX) / zoom, y: (sy - rect.top - panY) / zoom };
 }
 
-function showZoomIndicator() {
-  const el = document.getElementById('zoom-indicator');
-  if (!el) return;
-  el.textContent = Math.round(zoom * 100) + '%';
-  el.classList.add('show');
-  clearTimeout(zoomTimer);
-  zoomTimer = setTimeout(() => el.classList.remove('show'), 1200);
-}
+function showZoomIndicator() {}
 
 function draw() {
   cx.clearRect(0, 0, cvs.width, cvs.height);
@@ -310,111 +294,87 @@ function buildNodeEl(n) {
 function getIcon(type) {
   const icons = {
     pc: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="4" width="36" height="25" rx="3" fill="#4285f4"/>
-      <rect x="6" y="6" width="32" height="21" rx="2" fill="#d2e3fc"/>
-      <rect x="8" y="8" width="13" height="9" rx="1" fill="rgba(255,255,255,.45)"/>
-      <rect x="17" y="29" width="10" height="4" fill="#4285f4"/>
-      <rect x="12" y="33" width="20" height="3" rx="1.5" fill="#3367d6"/>
+      <rect x="5" y="5" width="34" height="22" rx="2" fill="#d9dee7" stroke="#586270" stroke-width="1.5"/>
+      <rect x="8" y="8" width="28" height="16" fill="#eef2f7"/>
+      <rect x="18" y="28" width="8" height="4" fill="#7a8593"/>
+      <rect x="12" y="32" width="20" height="3" rx="1" fill="#586270"/>
     </svg>`,
     laptop: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect x="5" y="4" width="34" height="24" rx="2.5" fill="#4285f4"/>
-      <rect x="7" y="6" width="30" height="20" rx="1.5" fill="#d2e3fc"/>
-      <rect x="9" y="8" width="12" height="8" rx="1" fill="rgba(255,255,255,.45)"/>
-      <path d="M2 28 L42 28 L40 35 L4 35 Z" fill="#3367d6"/>
-      <rect x="16" y="29.5" width="12" height="3" rx="1.5" fill="#2a56c6"/>
+      <rect x="7" y="6" width="30" height="18" rx="2" fill="#d9dee7" stroke="#586270" stroke-width="1.5"/>
+      <rect x="10" y="9" width="24" height="12" fill="#eef2f7"/>
+      <path d="M3 27h38l-3 6H6z" fill="#7a8593" stroke="#586270" stroke-width="1.2"/>
+      <rect x="16" y="28.5" width="12" height="2.5" rx="1" fill="#d9dee7"/>
     </svg>`,
     router: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect x="20" y="2" width="2.5" height="11" rx="1.25" fill="#e65100"/>
-      <rect x="13" y="3" width="2" height="9" rx="1" fill="#e65100" transform="rotate(-12,14,7)"/>
-      <rect x="29" y="3" width="2" height="9" rx="1" fill="#e65100" transform="rotate(12,30,7)"/>
-      <rect x="3" y="14" width="38" height="20" rx="4" fill="#fb8c00"/>
-      <rect x="3" y="14" width="38" height="10" rx="4" fill="#e65100"/>
-      <rect x="3" y="20" width="38" height="14" fill="#fb8c00"/>
-      <rect x="7" y="16" width="6" height="4" rx="1" fill="#bf360c"/>
-      <rect x="15" y="16" width="6" height="4" rx="1" fill="#bf360c"/>
-      <rect x="23" y="16" width="6" height="4" rx="1" fill="#bf360c"/>
-      <circle cx="9" cy="28" r="2" fill="#4caf50"/>
-      <circle cx="16" cy="28" r="2" fill="#4caf50"/>
-      <circle cx="23" cy="28" r="2" fill="#4caf50"/>
-      <circle cx="35" cy="28" r="2.5" fill="#ff5252"/>
+      <line x1="22" y1="5" x2="22" y2="13" stroke="#8f5f17" stroke-width="2"/>
+      <line x1="15" y1="6" x2="13" y2="12" stroke="#8f5f17" stroke-width="2"/>
+      <line x1="29" y1="6" x2="31" y2="12" stroke="#8f5f17" stroke-width="2"/>
+      <rect x="4" y="14" width="36" height="18" rx="3" fill="#d9b16a" stroke="#8f5f17" stroke-width="1.5"/>
+      <rect x="8" y="18" width="6" height="3" fill="#8f5f17"/>
+      <rect x="18" y="18" width="6" height="3" fill="#8f5f17"/>
+      <rect x="28" y="18" width="6" height="3" fill="#8f5f17"/>
+      <circle cx="11" cy="27" r="1.8" fill="#4f8a10"/>
+      <circle cx="18" cy="27" r="1.8" fill="#4f8a10"/>
+      <circle cx="25" cy="27" r="1.8" fill="#4f8a10"/>
+      <circle cx="33" cy="27" r="1.8" fill="#b23b2a"/>
     </svg>`,
     switch: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="12" width="40" height="20" rx="3" fill="#607d8b"/>
-      <rect x="2" y="12" width="40" height="10" rx="3" fill="#78909c"/>
-      <rect x="4" y="14" width="36" height="6" rx="1.5" fill="#90a4ae"/>
-      <circle cx="8" cy="17" r="2" fill="#00acc1"/>
-      <circle cx="13" cy="17" r="2" fill="#00acc1"/>
-      <circle cx="8" cy="26" r="1.5" fill="#37474f"/>
-      <circle cx="13" cy="26" r="1.5" fill="#37474f"/>
-      <circle cx="18" cy="26" r="1.5" fill="#37474f"/>
-      <circle cx="23" cy="26" r="1.5" fill="#37474f"/>
-      <circle cx="28" cy="26" r="1.5" fill="#37474f"/>
-      <circle cx="33" cy="26" r="1.5" fill="#37474f"/>
-      <circle cx="37" cy="17" r="2" fill="#4caf50"/>
-      <circle cx="37" cy="26" r="2" fill="#ff5252"/>
+      <rect x="4" y="14" width="36" height="16" rx="2" fill="#cfd4db" stroke="#586270" stroke-width="1.5"/>
+      <rect x="7" y="18" width="22" height="2.5" fill="#8f98a5"/>
+      <rect x="7" y="24" width="4" height="2.5" fill="#586270"/>
+      <rect x="13" y="24" width="4" height="2.5" fill="#586270"/>
+      <rect x="19" y="24" width="4" height="2.5" fill="#586270"/>
+      <rect x="25" y="24" width="4" height="2.5" fill="#586270"/>
+      <circle cx="34" cy="20" r="1.8" fill="#4f8a10"/>
+      <circle cx="34" cy="26" r="1.8" fill="#b23b2a"/>
     </svg>`,
     server: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect x="12" y="3" width="20" height="38" rx="3" fill="#455a64"/>
-      <rect x="14" y="5" width="16" height="34" rx="2" fill="#37474f"/>
-      <rect x="16" y="8" width="10" height="2" rx="1" fill="#546e7a"/>
-      <rect x="16" y="12" width="10" height="2" rx="1" fill="#546e7a"/>
-      <rect x="16" y="16" width="10" height="2" rx="1" fill="#546e7a"/>
-      <rect x="16" y="21" width="10" height="3" rx="1" fill="#546e7a"/>
-      <circle cx="22" cy="31" r="3.5" fill="#546e7a"/>
-      <circle cx="16.5" cy="35" r="1.5" fill="#ffd600"/>
-      <circle cx="22" cy="35" r="1.5" fill="#4caf50"/>
-      <circle cx="27.5" cy="35" r="1.5" fill="#ff5252"/>
+      <rect x="12" y="4" width="20" height="36" rx="2" fill="#d9dee7" stroke="#586270" stroke-width="1.5"/>
+      <rect x="16" y="9" width="12" height="2" fill="#7a8593"/>
+      <rect x="16" y="14" width="12" height="2" fill="#7a8593"/>
+      <rect x="16" y="19" width="12" height="2" fill="#7a8593"/>
+      <rect x="16" y="24" width="12" height="2" fill="#7a8593"/>
+      <circle cx="17" cy="32" r="1.5" fill="#b89a19"/>
+      <circle cx="22" cy="32" r="1.5" fill="#4f8a10"/>
+      <circle cx="27" cy="32" r="1.5" fill="#b23b2a"/>
     </svg>`,
     hub: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="13" width="40" height="20" rx="3" fill="#e91e63"/>
-      <rect x="2" y="13" width="40" height="10" rx="3" fill="#f06292"/>
-      <rect x="4" y="15" width="36" height="6" rx="1.5" fill="#f8bbd9"/>
-      <circle cx="9" cy="27" r="2" fill="#880e4f"/>
-      <circle cx="15" cy="27" r="2" fill="#880e4f"/>
-      <circle cx="21" cy="27" r="2" fill="#880e4f"/>
-      <circle cx="27" cy="27" r="2" fill="#880e4f"/>
-      <circle cx="33" cy="27" r="2" fill="#880e4f"/>
-      <circle cx="39" cy="27" r="2" fill="#880e4f"/>
-      <text x="22" y="21" text-anchor="middle" font-size="6" fill="#fff" font-family="Arial" font-weight="bold">HUB</text>
+      <rect x="4" y="14" width="36" height="16" rx="2" fill="#d6c9dd" stroke="#6f5d7b" stroke-width="1.5"/>
+      <text x="22" y="21" text-anchor="middle" font-size="7" fill="#6f5d7b" font-family="Arial" font-weight="bold">HUB</text>
+      <rect x="8" y="24" width="4" height="2.5" fill="#6f5d7b"/>
+      <rect x="14" y="24" width="4" height="2.5" fill="#6f5d7b"/>
+      <rect x="20" y="24" width="4" height="2.5" fill="#6f5d7b"/>
+      <rect x="26" y="24" width="4" height="2.5" fill="#6f5d7b"/>
+      <rect x="32" y="24" width="4" height="2.5" fill="#6f5d7b"/>
     </svg>`,
     ap: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="26" width="36" height="13" rx="3" fill="#00897b"/>
-      <rect x="4" y="26" width="36" height="7" rx="3" fill="#26a69a"/>
-      <circle cx="11" cy="34" r="2" fill="#004d40"/>
-      <circle cx="19" cy="34" r="2" fill="#4caf50"/>
-      <circle cx="27" cy="34" r="2" fill="#4caf50"/>
-      <circle cx="35" cy="34" r="2" fill="#4caf50"/>
-      <line x1="22" y1="24" x2="22" y2="18" stroke="#00897b" stroke-width="2.5"/>
-      <path d="M14 20 Q22 13 30 20" stroke="#00897b" stroke-width="2" fill="none" stroke-linecap="round"/>
-      <path d="M10 16 Q22 7 34 16" stroke="#26a69a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".7"/>
-      <path d="M7 12 Q22 1 37 12" stroke="#4db6ac" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".4"/>
-      <circle cx="22" cy="18" r="2.5" fill="#00897b"/>
+      <rect x="7" y="28" width="30" height="8" rx="2" fill="#d6ddd6" stroke="#607460" stroke-width="1.5"/>
+      <circle cx="14" cy="32" r="1.5" fill="#4f8a10"/>
+      <circle cx="21" cy="32" r="1.5" fill="#4f8a10"/>
+      <circle cx="28" cy="32" r="1.5" fill="#4f8a10"/>
+      <line x1="22" y1="27" x2="22" y2="20" stroke="#607460" stroke-width="2"/>
+      <path d="M15 22q7-7 14 0" stroke="#607460" stroke-width="1.7" fill="none"/>
+      <path d="M11 18q11-11 22 0" stroke="#92a192" stroke-width="1.5" fill="none"/>
     </svg>`,
     modem: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="15" width="38" height="18" rx="3" fill="#1565c0"/>
-      <rect x="3" y="15" width="38" height="9" rx="3" fill="#1976d2"/>
-      <rect x="3" y="21" width="38" height="12" fill="#1976d2"/>
-      <rect x="5" y="17" width="34" height="1.5" rx=".75" fill="rgba(255,255,255,.2)"/>
-      <circle cx="10" cy="30" r="2.2" fill="#00e5ff"/>
-      <circle cx="10" cy="30" r="1" fill="#b2ebf2" opacity=".7"/>
-      <circle cx="17" cy="30" r="2.2" fill="#00e5ff"/>
-      <circle cx="17" cy="30" r="1" fill="#b2ebf2" opacity=".7"/>
-      <circle cx="24" cy="30" r="2.2" fill="#4caf50"/>
-      <circle cx="24" cy="30" r="1" fill="#c8e6c9" opacity=".7"/>
-      <circle cx="31" cy="30" r="2.2" fill="#ffd600"/>
-      <circle cx="31" cy="30" r="1" fill="#fff9c4" opacity=".7"/>
-      <rect x="8" y="19" width="12" height="1.5" rx=".75" fill="rgba(255,255,255,.3)"/>
-      <rect x="8" y="21.5" width="8" height="1" rx=".5" fill="rgba(255,255,255,.18)"/>
-      <rect x="14" y="33" width="4" height="5" rx="1" fill="#0d47a1"/>
-      <rect x="22" y="33" width="4" height="5" rx="1" fill="#0d47a1"/>
-      <rect x="15" y="34.5" width="2" height="2" rx=".5" fill="#42a5f5" opacity=".8"/>
-      <rect x="23" y="34.5" width="2" height="2" rx=".5" fill="#42a5f5" opacity=".8"/>
-      <path d="M33 10 Q36 7 39 10" stroke="#1976d2" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-      <path d="M31 12 Q36 6 41 12" stroke="#1565c0" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/>
-      <circle cx="36" cy="13" r="1.5" fill="#1976d2"/>
+      <rect x="5" y="16" width="34" height="14" rx="2" fill="#d9dee7" stroke="#586270" stroke-width="1.5"/>
+      <circle cx="13" cy="23" r="1.8" fill="#4f8a10"/>
+      <circle cx="20" cy="23" r="1.8" fill="#4f8a10"/>
+      <circle cx="27" cy="23" r="1.8" fill="#b89a19"/>
+      <circle cx="34" cy="23" r="1.8" fill="#b23b2a"/>
+      <rect x="15" y="30" width="3" height="5" fill="#586270"/>
+      <rect x="25" y="30" width="3" height="5" fill="#586270"/>
     </svg>`,
   };
   return (icons[type] || icons.pc).replace(/\n\s*/g, ' ');
+}
+
+function syncPaletteIcons() {
+  document.querySelectorAll('.pal-item[data-type]').forEach(item => {
+    const type = item.dataset.type;
+    const icon = item.querySelector('.pi-icon');
+    if (type && icon) icon.innerHTML = getIcon(type);
+  });
 }
 
 function refreshNode(n) {
@@ -793,7 +753,7 @@ function _dtOpenApp(appId) {
     const savedUrl  = _dtBrowserState.url  || '';
     const savedHtml = _dtBrowserState.html || `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#94a3b8">
-        <div style="font-size:42px">🌐</div>
+        <div style="font-size:24px;font-weight:700;letter-spacing:.1em">WWW</div>
         <div style="font-size:13px">IP-Adresse oder Hostname eingeben und Enter drücken</div>
       </div>`;
     panel.innerHTML = `
@@ -900,11 +860,10 @@ function _dtShowTerminal() {
 }
 
 function _dtApplyTheme() {
-  const dark   = document.body.classList.contains('dark');
-  const bg     = dark ? '#0d1117'               : '#f2efe8';
-  const text   = dark ? '#e6edf3'               : '#1a1a1a';
-  const prompt = dark ? '#4ade80'               : '#16803c';
-  const bdr    = dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.10)';
+  const bg     = '#f7f7f7';
+  const text   = '#1f2328';
+  const prompt = '#2f6f2f';
+  const bdr    = '#c8c8c8';
   const out    = document.getElementById('dt-output');
   const inpRow = document.getElementById('dt-input-row');
   const hints  = document.getElementById('dt-hints');
@@ -1073,32 +1032,12 @@ function setMode(m) {
   mode = m;
   ['design', 'sim'].forEach(x => { document.getElementById('mo-' + x)?.classList.toggle('active', m === x); });
   document.body.classList.toggle('sim-mode', m === 'sim');
-  const modeNames = { design: '✏ Entwurfsmodus', sim: '▶ Simulationsmodus' };
+  const modeNames = { design: 'Entwurfsmodus', sim: 'Simulationsmodus' };
   document.getElementById('sb-mode').textContent = modeNames[m];
   if (cableMode && m !== 'design') toggleCable();
   if (deleteMode && m !== 'design') toggleDelete();
   log(modeNames[m] + ' aktiviert', 'info');
 }
-
-function toggleTheme() {
-  const dark = document.body.classList.toggle('dark');
-  localStorage.setItem('netsim-theme', dark ? 'dark' : 'light');
-  document.getElementById('theme-icon-sun').style.display  = dark ? 'none' : '';
-  document.getElementById('theme-icon-moon').style.display = dark ? ''     : 'none';
-  if (typeof _dtApplyTheme === 'function') _dtApplyTheme();
-}
-
-// Theme aus localStorage wiederherstellen
-(function () {
-  const saved = localStorage.getItem('netsim-theme');
-  if (saved === 'dark') {
-    document.body.classList.add('dark');
-    const sun  = document.getElementById('theme-icon-sun');
-    const moon = document.getElementById('theme-icon-moon');
-    if (sun)  sun.style.display  = 'none';
-    if (moon) moon.style.display = '';
-  }
-})();
 
 function toggleCable() {
   if (mode !== 'design') { notify('Nur im Entwurfsmodus', 'error'); return; }
@@ -1549,12 +1488,13 @@ function resolveHost(name, fromNode) {
 function showPacketPath(path, src, dstIP) {
   const panel = document.getElementById('packet-path');
   const route = document.getElementById('pp-route');
+  if (!panel || !route) return;
   if (!path || !path.length) { panel.classList.remove('show'); return; }
   if (!panel.classList.contains('show')) panel.classList.add('show');
   const allNodes = [src, ...path];
   route.innerHTML = allNodes.map((n, i) => {
     const isLast  = (i === allNodes.length - 1);
-    const content = `<div class="pp-node" title="${n.ip || n.mac}">🖥️ ${n.name}</div>`;
+    const content = `<div class="pp-node" title="${n.ip || n.mac}">${n.name}</div>`;
     return content + (isLast ? '' : '<span class="pp-arr">→</span>');
   }).join('');
   setTimeout(() => panel.classList.remove('show'), 6000);
@@ -1678,7 +1618,7 @@ function doTracert(src, dstIP) {
 // ════════════════════════════════════════════════════════════
 function initDNSWindow() {
   renderDNSTable();
-  document.getElementById('dns-start-btn').textContent = dnsRunning ? '■ DNS-Server stoppen' : '▶ DNS-Server starten';
+  document.getElementById('dns-start-btn').textContent = dnsRunning ? 'DNS-Server stoppen' : 'DNS-Server starten';
   document.getElementById('dns-status').textContent    = dnsRunning ? `✓ DNS-Server läuft auf ${dnsServerNode?.name || '?'}` : '';
 }
 
@@ -1710,7 +1650,7 @@ function dnsRemove(host) { delete dnsEntries[host]; renderDNSTable(); }
 function dnsServerToggle() {
   dnsRunning    = !dnsRunning;
   dnsServerNode = appWindowNode;
-  document.getElementById('dns-start-btn').textContent = dnsRunning ? '■ DNS-Server stoppen' : '▶ DNS-Server starten';
+  document.getElementById('dns-start-btn').textContent = dnsRunning ? 'DNS-Server stoppen' : 'DNS-Server starten';
   document.getElementById('dns-status').textContent    = dnsRunning ? `✓ DNS-Server läuft auf ${dnsServerNode?.name}` : '';
   log(`DNS-Server ${dnsRunning ? 'gestartet' : 'gestoppt'} auf ${dnsServerNode?.name}`, dnsRunning ? 'success' : 'warn');
 }
@@ -1719,7 +1659,7 @@ function dnsServerToggle() {
 // DHCP-SERVER FENSTER
 // ════════════════════════════════════════════════════════════
 function initDHCPWindow() {
-  document.getElementById('dhcp-start-btn').textContent = dhcpRunning ? '■ DHCP stoppen' : '▶ DHCP-Server starten';
+  document.getElementById('dhcp-start-btn').textContent = dhcpRunning ? 'DHCP stoppen' : 'DHCP-Server starten';
   if (appWindowNode) document.getElementById('dhcp-gw').value = appWindowNode.gw || appWindowNode.ip || '';
 }
 
@@ -1727,7 +1667,7 @@ function dhcpToggle() {
   dhcpRunning    = !dhcpRunning;
   dhcpServerNode = appWindowNode;
   const btn      = document.getElementById('dhcp-start-btn');
-  btn.textContent = dhcpRunning ? '■ DHCP stoppen' : '▶ DHCP-Server starten';
+  btn.textContent = dhcpRunning ? 'DHCP stoppen' : 'DHCP-Server starten';
   const statusEl  = document.getElementById('dhcp-status');
   if (dhcpRunning) {
     const from = document.getElementById('dhcp-from').value;
@@ -1766,7 +1706,7 @@ function initWebserverWindow() {
   if (!wsNodes[nodeId]) wsNodes[nodeId] = { running: false, content: document.getElementById('webserver-content').value };
   const ws = wsNodes[nodeId];
   document.getElementById('webserver-content').value = ws.content;
-  document.getElementById('ws-start-btn').textContent = ws.running ? '■ Server stoppen' : '▶ Server starten';
+  document.getElementById('ws-start-btn').textContent = ws.running ? 'Server stoppen' : 'Server starten';
   document.getElementById('ws-status').textContent    = ws.running ? `✓ Webserver läuft auf http://${appWindowNode?.ip}` : '';
 }
 
@@ -1783,7 +1723,7 @@ function webserverToggle() {
   const ws = wsNodes[nodeId];
   ws.content  = document.getElementById('webserver-content').value;
   ws.running  = !ws.running;
-  document.getElementById('ws-start-btn').textContent = ws.running ? '■ Server stoppen' : '▶ Server starten';
+  document.getElementById('ws-start-btn').textContent = ws.running ? 'Server stoppen' : 'Server starten';
   document.getElementById('ws-status').textContent    = ws.running
     ? `✓ Webserver läuft auf http://${appWindowNode?.ip}`
     : 'Server gestoppt.';
@@ -1849,7 +1789,7 @@ function renderMailServerApp() {
           <label>Mail-Domain</label>
           <input id="mail-domain" class="rp-input" value="${(state.domain || '').replace(/"/g, '&quot;')}" placeholder="schule.local">
         </div>
-        <button class="rp-btn primary" onclick="mailServerToggle()">${state.running ? '■ Mailserver stoppen' : '▶ Mailserver starten'}</button>
+        <button class="rp-btn primary" onclick="mailServerToggle()">${state.running ? 'Mailserver stoppen' : 'Mailserver starten'}</button>
         <div style="font-size:11px;color:var(--muted);margin-top:8px">
           ${state.running ? `Aktiv auf ${node.name}` : 'Server ist gestoppt'}
         </div>
@@ -2339,8 +2279,6 @@ function clearAll() {
   log('Netzwerk zurückgesetzt', 'warn');
 }
 
-function showHelp() { document.getElementById('help-panel').classList.toggle('open'); }
-
 // ════════════════════════════════════════════════════════════
 // BEISPIEL-NETZWERK
 // ════════════════════════════════════════════════════════════
@@ -2480,7 +2418,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('dt-overlay').style.display === 'flex') { closeDesktop(); return; }
     if (document.getElementById('cmd-overlay').classList.contains('visible')) closeCMD();
-    if (document.getElementById('help-panel').classList.contains('open'))   showHelp();
     if (cableMode) toggleCable();
     if (deleteMode) toggleDelete();
     closeAllApps();
@@ -2488,12 +2425,6 @@ document.addEventListener('keydown', e => {
   if (e.key === ' ') { e.preventDefault(); setMode(mode === 'design' ? 'sim' : 'design'); }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNet(); }
 });
-
-// Zusätzliche Tastenkürzel: N = Subnetz-Rechner
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true') return;
-  if (e.key === 'n' || e.key === 'N') toggleSubnetCalc();
-}, true);
 
 // Fenster-Drag: CMD-Terminal
 (function () {
@@ -2599,29 +2530,6 @@ function subnetInfo(ip, prefix) {
   } catch (e) { return null; }
 }
 
-function calcSubnet() {
-  const ip     = document.getElementById('sn-ip').value.trim();
-  const prefix = document.getElementById('sn-prefix').value.trim();
-  const res    = document.getElementById('sn-result');
-  if (!ip || !prefix) { res.innerHTML = '<span style="color:var(--muted)">IP und Präfixlänge eingeben…</span>'; return; }
-  const info = subnetInfo(ip, prefix);
-  if (!info)  { res.innerHTML = '<span style="color:var(--red)">⚠ Ungültige Eingabe — z.B. 192.168.1.0 / 24</span>'; return; }
-  res.innerHTML = `
-    <div style="display:grid;gap:3px">
-      <div><span style="color:var(--muted);display:inline-block;width:130px">Netzadresse:</span> <strong style="color:var(--accent)">${info.network}</strong></div>
-      <div><span style="color:var(--muted);display:inline-block;width:130px">Subnetzmaske:</span> <strong>${info.mask}</strong></div>
-      <div><span style="color:var(--muted);display:inline-block;width:130px">Broadcast:</span> <strong style="color:var(--red)">${info.broadcast}</strong></div>
-      <div><span style="color:var(--muted);display:inline-block;width:130px">Erster Host:</span> <strong style="color:var(--green)">${info.firstHost}</strong></div>
-      <div><span style="color:var(--muted);display:inline-block;width:130px">Letzter Host:</span> <strong style="color:var(--green)">${info.lastHost}</strong></div>
-      <div><span style="color:var(--muted);display:inline-block;width:130px">Nutzbare Hosts:</span> <strong>${info.hosts}</strong></div>
-      <div><span style="color:var(--muted);display:inline-block;width:130px">CIDR:</span> <strong>${info.cidr}</strong></div>
-      <div><span style="color:var(--muted);display:inline-block;width:130px">Netzklasse:</span> <strong>Klasse ${info.ipClass}</strong></div>
-    </div>`;
-}
-
-function toggleSubnetCalc() { document.getElementById('subnet-panel').classList.toggle('open'); }
-
-
 // ════════════════════════════════════════════════════════════
 // HUB — Broadcast-Visualisierung
 // ════════════════════════════════════════════════════════════
@@ -2637,6 +2545,7 @@ function animateHubBroadcast(hub, fromNode, color) {
 // ════════════════════════════════════════════════════════════
 setTimeout(() => {
   resize();
+  syncPaletteIcons();
   log('NetSim bereit — ziehe Geräte auf die Arbeitsfläche und vergib IP-Adressen!', 'success');
   log('💡 Tipp: Leertaste = Modus wechseln · C = Kabel · D = Löschen · Doppelklick = Terminal', 'info');
   log('⚠ IPs werden nicht automatisch vergeben — du musst sie selbst festlegen!', 'warn');
